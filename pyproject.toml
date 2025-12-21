@@ -1,0 +1,14 @@
+[project]
+name = "currency-exchange"
+version = "1.0.0"
+description = "REST API service for managing currencies, exchange rates, and calculating currency conversions"
+readme = "README.md"
+authors = [
+    { name = "Ilia Korepanov", email = "ikorepanov@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
