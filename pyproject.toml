@@ -7,7 +7,9 @@ authors = [
     { name = "Ilia Korepanov", email = "ikorepanov@gmail.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "loguru==0.7.3",
+]
 
 [build-system]
 requires = ["hatchling"]
