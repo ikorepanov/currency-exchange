@@ -175,3 +175,6 @@ TODO.md
 
 # ruff
 .ruff_cache/
+
+# DB
+*.sqlite
