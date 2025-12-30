@@ -7,6 +7,70 @@ from loguru import logger
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        first_segment = self.get_first_path_segment()
+
+        if first_segment == 'currencies':
+            self.read_currencies()
+        elif first_segment == 'currency':
+            self.read_currency()
+        elif first_segment == 'exchangeRates':
+            self.read_rates()
+        elif first_segment == 'exchangeRate':
+            self.read_rate()
+        elif first_segment == 'exchange':
+            self.exchange_currencies()
+        elif first_segment == '':
+            self.root()
+        else:
+            self.send_custom_error(404)
+
+    def do_POST(self) -> None:
+        first_segment = self.get_first_path_segment()
+
+        if first_segment == 'currencies':
+            self.save_currency()
+        elif first_segment == 'exchangeRates':
+            self.save_rate()
+        else:
+            self.send_custom_error(404)
+
+    def do_PATCH(self) -> None:
+        if self.get_first_path_segment() == 'exchangeRate':
+            self.update_rate()
+        else:
+            self.send_custom_error(404)
+
+    def read_currencies(self) -> None:
+        pass
+
+    def read_currency(self) -> None:
+        pass
+
+    def read_rates(self) -> None:
+        pass
+
+    def read_rate(self) -> None:
+        pass
+
+    def exchange_currencies(self) -> None:
+        pass
+
+    def save_currency(self) -> None:
+        pass
+
+    def save_rate(self) -> None:
+        pass
+
+    def update_rate(self) -> None:
+        pass
+
+    def send_custom_error(self, code: int) -> None:
+        pass
+
+    def get_first_path_segment(self) -> str:
+        return self.path.strip('/').split('/')[0].split('?')[0]
+
+    def root(self) -> None:
         data = self.retrieve_data()
         body = json.dumps(data, ensure_ascii=False).encode('utf-8')
 
@@ -15,12 +79,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
-
-    def do_POST(self) -> None:
-        self.send_error(405)
-
-    def do_PATCH(self) -> None:
-        self.send_error(405)
 
     def retrieve_data(self) -> dict[str, Any]:
         return {'id': 0, 'name': 'Euro', 'code': 'EUR', 'sign': '€'}
