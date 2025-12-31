@@ -1,7 +1,17 @@
+from dataclasses import dataclass
+
 from forex_python.converter import CurrencyCodes
 
 
+@dataclass
 class Currency:
+    id: int
+    name: str
+    code: str
+    sign: str
+
+
+class CurrencyFull:
     signs = CurrencyCodes()
 
     def __init__(self, id: int, code: str, full_name: str):

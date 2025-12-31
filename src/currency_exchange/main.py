@@ -1,15 +1,21 @@
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from sqlite3 import connect
 from typing import Any
 
 from loguru import logger
 
+from currency_exchange.models import Currency
+
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        # Controller
+        # A kind of validation
         first_segment = self.get_first_path_segment()
+        number_of_segments = self.get_number_of_path_segments()
 
-        if first_segment == 'currencies':
+        if first_segment == 'currencies' and number_of_segments == 1:
             self.read_currencies()
         elif first_segment == 'currency':
             self.read_currency()
@@ -22,7 +28,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif first_segment == '':
             self.root()
         else:
-            self.send_custom_error(404)
+            self.send_error(404)
 
     def do_POST(self) -> None:
         first_segment = self.get_first_path_segment()
@@ -41,7 +47,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_custom_error(404)
 
     def read_currencies(self) -> None:
-        pass
+        # DAO
+        conn = connect('./src/currency_exchange/db.sqlite')
+        cur = conn.cursor()
+        sql = 'SELECT * FROM Currencies'
+        cur.execute(sql)
+        raw_data = cur.fetchall()
+        cur.close()
+
+        result = []
+        for data in raw_data:
+            entity = Currency(data[0], data[2], data[1], data[3])
+            result.append(entity)
+
+        # Controller
+        json_string = [ob.__dict__ for ob in result]
+        body = json.dumps(json_string, ensure_ascii=False).encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def read_currency(self) -> None:
         pass
@@ -69,6 +95,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def get_first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]
+
+    def get_number_of_path_segments(self) -> int:
+        return len(self.path.strip('/').split('/'))
 
     def root(self) -> None:
         data = self.retrieve_data()
