@@ -1,22 +1,25 @@
 import json
+from dataclasses import asdict
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from sqlite3 import connect
 from typing import Any
 
 from loguru import logger
 
+from currency_exchange.exceptions import CurrencyExchangeError
 from currency_exchange.models import Currency
+from currency_exchange.storages import CurrencyStorage
 
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        # Controller
-        # A kind of validation
         first_segment = self.get_first_path_segment()
         number_of_segments = self.get_number_of_path_segments()
 
+        currency_storage = CurrencyStorage()
+
         if first_segment == 'currencies' and number_of_segments == 1:
-            self.read_currencies()
+            self.read_currencies(currency_storage)
         elif first_segment == 'currency':
             self.read_currency()
         elif first_segment == 'exchangeRates':
@@ -28,7 +31,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif first_segment == '':
             self.root()
         else:
-            self.send_error(404)
+            self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
         first_segment = self.get_first_path_segment()
@@ -38,32 +41,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif first_segment == 'exchangeRates':
             self.save_rate()
         else:
-            self.send_custom_error(404)
+            self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_PATCH(self) -> None:
         if self.get_first_path_segment() == 'exchangeRate':
             self.update_rate()
         else:
-            self.send_custom_error(404)
+            self.send_error(HTTPStatus.NOT_FOUND)
 
-    def read_currencies(self) -> None:
-        # DAO
-        conn = connect('./src/currency_exchange/db.sqlite')
-        cur = conn.cursor()
-        sql = 'SELECT * FROM Currencies'
-        cur.execute(sql)
-        raw_data = cur.fetchall()
-        cur.close()
+    def read_currencies(self, storage: CurrencyStorage) -> None:
+        try:
+            currency_objects = storage.read()
+            self.send_ok(currency_objects)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-        result = []
-        for data in raw_data:
-            entity = Currency(data[0], data[2], data[1], data[3])
-            result.append(entity)
-
-        # Controller
-        json_string = [ob.__dict__ for ob in result]
+    def send_ok(self, data: list[Currency]) -> None:
+        json_string = [asdict(obj) for obj in data]
         body = json.dumps(json_string, ensure_ascii=False).encode('utf-8')
-        self.send_response(200)
+        self.send_response(HTTPStatus.OK)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
@@ -90,9 +86,6 @@ class RequestHandler(BaseHTTPRequestHandler):
     def update_rate(self) -> None:
         pass
 
-    def send_custom_error(self, code: int) -> None:
-        pass
-
     def get_first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]
 
@@ -111,6 +104,39 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def retrieve_data(self) -> dict[str, Any]:
         return {'id': 0, 'name': 'Euro', 'code': 'EUR', 'sign': '€'}
+
+    def send_error(
+        self, code: int, message: str | None = None, explain: str | None = None
+    ) -> None:
+        try:
+            shortmsg, longmsg = self.responses[code]
+        except KeyError:
+            shortmsg, longmsg = '???', '???'
+        if message is None:
+            message = shortmsg
+        if explain is None:
+            explain = longmsg
+        self.log_error('code %d, message %s', code, message)
+        self.send_response(code, message)
+        self.send_header('Connection', 'close')
+
+        # Message body is omitted for cases described in:
+        #  - RFC7230: 3.3. 1xx, 204(No Content), 304(Not Modified)
+        #  - RFC7231: 6.3.6. 205(Reset Content)
+        body = None
+        if code >= 200 and code not in (
+            HTTPStatus.NO_CONTENT,
+            HTTPStatus.RESET_CONTENT,
+            HTTPStatus.NOT_MODIFIED,
+        ):
+            content = {'message': message, 'explain': explain}
+            body = json.dumps(content).encode('utf-8')
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+
+        if self.command != 'HEAD' and body:
+            self.wfile.write(body)
 
 
 class ExchangeServer(HTTPServer):
