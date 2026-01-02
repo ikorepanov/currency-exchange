@@ -2,7 +2,6 @@ import json
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any
 
 from loguru import logger
 
@@ -24,16 +23,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             if number_of_segments == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
             elif number_of_segments == 2:
-                code = self.get_second_path_segment()
-                self.read_currency(currency_storage, code)
+                cur_code = self.get_second_path_segment()
+                self.read_currency(currency_storage, cur_code)
         elif first_segment == 'exchangeRates':
             self.read_rates()
         elif first_segment == 'exchangeRate':
             self.read_rate()
         elif first_segment == 'exchange':
             self.exchange_currencies()
-        elif first_segment == '':
-            self.root()
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -60,9 +57,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def read_currency(self, storage: CurrencyStorage, code: str) -> None:
+    def read_currency(self, storage: CurrencyStorage, cur_code: str) -> None:
         try:
-            currency_object = storage.load_one(code)
+            currency_object = storage.load_one(cur_code)
             self.send_ok(currency_object)
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -78,8 +75,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if isinstance(data, Currency):
             return json.dumps(asdict(data), ensure_ascii=False).encode('utf-8')
         else:
-            objj = [asdict(obj) for obj in data]
-            return json.dumps(objj, ensure_ascii=False).encode('utf-8')
+            return json.dumps([asdict(obj) for obj in data], ensure_ascii=False).encode(
+                'utf-8'
+            )
 
     def send_headers(self, code: int, body: bytes) -> None:
         self.send_response(code)
@@ -113,19 +111,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def get_number_of_path_segments(self) -> int:
         return len(self.path.strip('/').split('/'))
-
-    def root(self) -> None:
-        data = self.retrieve_data()
-        body = json.dumps(data, ensure_ascii=False).encode('utf-8')
-
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def retrieve_data(self) -> dict[str, Any]:
-        return {'id': 0, 'name': 'Euro', 'code': 'EUR', 'sign': '€'}
 
     def send_error(
         self, code: int, message: str | None = None, explain: str | None = None
