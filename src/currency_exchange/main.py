@@ -6,7 +6,7 @@ from typing import Any
 
 from loguru import logger
 
-from currency_exchange.exceptions import CurrencyExchangeError
+from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
 from currency_exchange.models import Currency
 from currency_exchange.storages import CurrencyStorage
 
@@ -21,7 +21,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if first_segment == 'currencies' and number_of_segments == 1:
             self.read_currencies(currency_storage)
         elif first_segment == 'currency':
-            self.read_currency()
+            if number_of_segments == 1:
+                self.send_error(HTTPStatus.BAD_REQUEST)
+            elif number_of_segments == 2:
+                code = self.get_second_path_segment()
+                self.read_currency(currency_storage, code)
         elif first_segment == 'exchangeRates':
             self.read_rates()
         elif first_segment == 'exchangeRate':
@@ -51,22 +55,37 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def read_currencies(self, storage: CurrencyStorage) -> None:
         try:
-            currency_objects = storage.read()
+            currency_objects = storage.load_all()
             self.send_ok(currency_objects)
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def send_ok(self, data: list[Currency]) -> None:
-        json_string = [asdict(obj) for obj in data]
-        body = json.dumps(json_string, ensure_ascii=False).encode('utf-8')
-        self.send_response(HTTPStatus.OK)
+    def read_currency(self, storage: CurrencyStorage, code: str) -> None:
+        try:
+            currency_object = storage.load_one(code)
+            self.send_ok(currency_object)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except NoCurrencyError:
+            self.send_error(HTTPStatus.NOT_FOUND)
+
+    def send_ok(self, data: Currency | list[Currency]) -> None:
+        body = self.prepare_body(data)
+        self.send_headers(HTTPStatus.OK, body)
+        self.wfile.write(body)
+
+    def prepare_body(self, data: Currency | list[Currency]) -> bytes:
+        if isinstance(data, Currency):
+            return json.dumps(asdict(data), ensure_ascii=False).encode('utf-8')
+        else:
+            objj = [asdict(obj) for obj in data]
+            return json.dumps(objj, ensure_ascii=False).encode('utf-8')
+
+    def send_headers(self, code: int, body: bytes) -> None:
+        self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
-
-    def read_currency(self) -> None:
-        pass
 
     def read_rates(self) -> None:
         pass
@@ -88,6 +107,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def get_first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]
+
+    def get_second_path_segment(self) -> str:
+        return self.path.strip('/').split('/')[1]
 
     def get_number_of_path_segments(self) -> int:
         return len(self.path.strip('/').split('/'))
