@@ -2,12 +2,13 @@ import json
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any
 
 from loguru import logger
 
 from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
-from currency_exchange.models import Currency
-from currency_exchange.storages import CurrencyStorage
+from currency_exchange.models import Currency, Rate
+from currency_exchange.storages import CurrencyStorage, RateStorage
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -16,17 +17,18 @@ class RequestHandler(BaseHTTPRequestHandler):
         number_of_segments = self.get_number_of_path_segments()
 
         currency_storage = CurrencyStorage()
+        rate_storage = RateStorage()
 
         if first_segment == 'currencies' and number_of_segments == 1:
-            self.read_currencies(currency_storage)
+            self.read_all_entities_from(currency_storage)
         elif first_segment == 'currency':
             if number_of_segments == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
             elif number_of_segments == 2:
                 cur_code = self.get_second_path_segment()
                 self.read_currency(currency_storage, cur_code)
-        elif first_segment == 'exchangeRates':
-            self.read_rates()
+        elif first_segment == 'exchangeRates' and number_of_segments == 1:
+            self.read_all_entities_from(rate_storage)
         elif first_segment == 'exchangeRate':
             self.read_rate()
         elif first_segment == 'exchange':
@@ -50,10 +52,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    def read_currencies(self, storage: CurrencyStorage) -> None:
+    def read_all_entities_from(self, storage: CurrencyStorage | RateStorage) -> None:
         try:
-            currency_objects = storage.load_all()
-            self.send_ok(currency_objects)
+            self.send_ok(storage.load_all())
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -66,27 +67,48 @@ class RequestHandler(BaseHTTPRequestHandler):
         except NoCurrencyError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    def send_ok(self, data: Currency | list[Currency]) -> None:
+    def send_ok(self, data: Currency | Rate | list[Currency] | list[Rate]) -> None:
         body = self.prepare_body(data)
         self.send_headers(HTTPStatus.OK, body)
         self.wfile.write(body)
 
-    def prepare_body(self, data: Currency | list[Currency]) -> bytes:
-        if isinstance(data, Currency):
-            return json.dumps(asdict(data), ensure_ascii=False).encode('utf-8')
+    def prepare_body(
+        self, data: Currency | Rate | list[Currency] | list[Rate]
+    ) -> bytes:
+        if isinstance(data, (Currency, Rate)):
+            return json.dumps(
+                self.change_keys_for_json(asdict(data)), ensure_ascii=False
+            ).encode('utf-8')
         else:
-            return json.dumps([asdict(obj) for obj in data], ensure_ascii=False).encode(
-                'utf-8'
-            )
+            return json.dumps(
+                [self.change_keys_for_json(asdict(obj)) for obj in data],
+                ensure_ascii=False,
+            ).encode('utf-8')
+
+    def change_keys_for_json(
+        self, original_dictionary: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {
+            (
+                self.to_lower_camel_case(key)
+                if key in ('base_currency', 'target_currency')
+                else key
+            ): value
+            for key, value in original_dictionary.items()
+        }
+
+    def to_lower_camel_case(self, snake_str: str) -> str:
+        camel_string = self.to_camel_case(snake_str)
+        return snake_str[0].lower() + camel_string[1:]
+
+    def to_camel_case(self, snake_str: str) -> str:
+        return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))
 
     def send_headers(self, code: int, body: bytes) -> None:
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-
-    def read_rates(self) -> None:
-        pass
 
     def read_rate(self) -> None:
         pass

@@ -11,6 +11,14 @@ class Currency:
     sign: str
 
 
+@dataclass
+class Rate:
+    id: int
+    base_currency: Currency
+    target_currency: Currency
+    rate: float
+
+
 class CurrencyFull:
     signs = CurrencyCodes()
 
@@ -50,7 +58,7 @@ class CurrencyFull:
         return all(word[0].isupper() and word[1:].islower() for word in s.split())
 
 
-class Rate:
+class RateFull:
     def __init__(self, id: int, base_id: int, target_id: int, rate: float):
         self.id = id
         self.base_id = base_id
