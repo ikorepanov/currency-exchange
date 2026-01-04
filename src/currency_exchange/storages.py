@@ -1,7 +1,7 @@
 from sqlite3 import OperationalError, connect
 
 from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
-from currency_exchange.models import Currency, Rate
+from currency_exchange.models import Currency, Rate, RateWithIds
 
 
 class CurrencyStorage:
@@ -66,5 +66,32 @@ class RateStorage:
 
                     result.append(Rate(id, base_currency, target_currency, rate))
             return result
+        except OperationalError as error:
+            raise CurrencyExchangeError(error)
+
+    def load_all_rates(self) -> list[RateWithIds]:
+        try:
+            with connect('./src/currency_exchange/db.sqlite') as conn:
+                cur = conn.cursor()
+                cur.execute('SELECT * FROM ExchangeRates')
+                raw_data = cur.fetchall()
+            return [
+                RateWithIds(data[0], data[1], data[2], data[3]) for data in raw_data
+            ]
+        except OperationalError as error:
+            raise CurrencyExchangeError(error)
+
+    def load_currency_with_id(self, cur_id: int) -> Currency:
+        try:
+            with connect('./src/currency_exchange/db.sqlite') as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    'SELECT Code, FullName, Sign FROM Currencies WHERE ID = ?',
+                    (cur_id,),
+                )
+                raw_data = cur.fetchone()
+            if raw_data is None:
+                raise NoCurrencyError()
+            return Currency(cur_id, raw_data[1], raw_data[0], raw_data[2])
         except OperationalError as error:
             raise CurrencyExchangeError(error)

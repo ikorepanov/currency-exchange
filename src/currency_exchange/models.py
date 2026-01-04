@@ -19,6 +19,14 @@ class Rate:
     rate: float
 
 
+@dataclass
+class RateWithIds:
+    id: int
+    base_currency_id: int
+    target_currency_id: int
+    rate: float
+
+
 class CurrencyFull:
     signs = CurrencyCodes()
 

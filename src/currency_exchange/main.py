@@ -8,6 +8,7 @@ from loguru import logger
 
 from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
 from currency_exchange.models import Currency, Rate
+from currency_exchange.services import RateService
 from currency_exchange.storages import CurrencyStorage, RateStorage
 
 
@@ -17,7 +18,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         number_of_segments = self.get_number_of_path_segments()
 
         currency_storage = CurrencyStorage()
-        rate_storage = RateStorage()
+
+        rate_service = RateService()
 
         if first_segment == 'currencies' and number_of_segments == 1:
             self.read_all_entities_from(currency_storage)
@@ -28,7 +30,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 cur_code = self.get_second_path_segment()
                 self.read_currency(currency_storage, cur_code)
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
-            self.read_all_entities_from(rate_storage)
+            self.read_all_rates_with(rate_service)
         elif first_segment == 'exchangeRate':
             self.read_rate()
         elif first_segment == 'exchange':
@@ -55,6 +57,12 @@ class RequestHandler(BaseHTTPRequestHandler):
     def read_all_entities_from(self, storage: CurrencyStorage | RateStorage) -> None:
         try:
             self.send_ok(storage.load_all())
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    def read_all_rates_with(self, service: RateService) -> None:
+        try:
+            self.send_ok(service.load_all_rates())
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
