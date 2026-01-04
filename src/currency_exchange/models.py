@@ -1,10 +1,16 @@
 from dataclasses import dataclass
 
-from forex_python.converter import CurrencyCodes
+
+@dataclass
+class CurrencyOld:
+    id: int
+    name: str
+    code: str
+    sign: str
 
 
 @dataclass
-class Currency:
+class CurrencyDto:
     id: int
     name: str
     code: str
@@ -14,8 +20,8 @@ class Currency:
 @dataclass
 class Rate:
     id: int
-    base_currency: Currency
-    target_currency: Currency
+    base_currency: CurrencyOld
+    target_currency: CurrencyOld
     rate: float
 
 
@@ -27,15 +33,12 @@ class RateWithIds:
     rate: float
 
 
-class CurrencyFull:
-    signs = CurrencyCodes()
-
-    def __init__(self, id: int, code: str, full_name: str):
+class Currency:
+    def __init__(self, id: int, code: str, full_name: str, sign: str):
         self.id = id
         self.code = code
         self.full_name = full_name
-
-        self.sign = self.signs.get_symbol(code)
+        self.sign = sign
 
     @property
     def code(self) -> str:
@@ -55,15 +58,16 @@ class CurrencyFull:
 
     @full_name.setter
     def full_name(self, value: str) -> None:
-        if not (value and self.is_title(value) and value.isascii() and value.isalpha()):
+        if not (
+            value
+            and all(value_part.isalpha() for value_part in value.split(' '))
+            and value[0].isupper()
+            and value.isascii()
+        ):
             raise ValueError(
-                'Each word in full_name must start with a capital English letter. '
-                'The rest of the letters in words must be in lowercase English letters.'
+                'full_name must be in English and begin with a capital letter.'
             )
         self._full_name = value
-
-    def is_title(self, s: str) -> bool:
-        return all(word[0].isupper() and word[1:].islower() for word in s.split())
 
 
 class RateFull:

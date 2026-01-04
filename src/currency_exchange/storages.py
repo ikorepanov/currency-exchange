@@ -1,21 +1,23 @@
 from sqlite3 import OperationalError, connect
 
 from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
-from currency_exchange.models import Currency, Rate, RateWithIds
+from currency_exchange.models import CurrencyOld, Rate, RateWithIds
 
 
 class CurrencyStorage:
-    def load_all(self) -> list[Currency]:
+    def load_all(self) -> list[CurrencyOld]:
         try:
             with connect('./src/currency_exchange/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute('SELECT * FROM Currencies')
                 raw_data = cur.fetchall()
-            return [Currency(data[0], data[2], data[1], data[3]) for data in raw_data]
+            return [
+                CurrencyOld(data[0], data[2], data[1], data[3]) for data in raw_data
+            ]
         except OperationalError as error:
             raise CurrencyExchangeError(error)
 
-    def load_one(self, cur_code: str) -> Currency:
+    def load_one(self, cur_code: str) -> CurrencyOld:
         try:
             with connect('./src/currency_exchange/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -26,7 +28,7 @@ class CurrencyStorage:
                 raw_data = cur.fetchone()
             if raw_data is None:
                 raise NoCurrencyError()
-            return Currency(raw_data[0], raw_data[1], cur_code, raw_data[2])
+            return CurrencyOld(raw_data[0], raw_data[1], cur_code, raw_data[2])
         except OperationalError as error:
             raise CurrencyExchangeError(error)
 
@@ -51,7 +53,7 @@ class RateStorage:
                         (base_currency_id,),
                     )
                     raw_data = cur.fetchone()
-                    base_currency = Currency(
+                    base_currency = CurrencyOld(
                         base_currency_id, raw_data[1], raw_data[0], raw_data[2]
                     )
 
@@ -60,7 +62,7 @@ class RateStorage:
                         (target_currency_id,),
                     )
                     raw_data = cur.fetchone()
-                    target_currency = Currency(
+                    target_currency = CurrencyOld(
                         target_currency_id, raw_data[1], raw_data[0], raw_data[2]
                     )
 
@@ -81,7 +83,7 @@ class RateStorage:
         except OperationalError as error:
             raise CurrencyExchangeError(error)
 
-    def load_currency_with_id(self, cur_id: int) -> Currency:
+    def load_currency_with_id(self, cur_id: int) -> CurrencyOld:
         try:
             with connect('./src/currency_exchange/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -92,6 +94,6 @@ class RateStorage:
                 raw_data = cur.fetchone()
             if raw_data is None:
                 raise NoCurrencyError()
-            return Currency(cur_id, raw_data[1], raw_data[0], raw_data[2])
+            return CurrencyOld(cur_id, raw_data[1], raw_data[0], raw_data[2])
         except OperationalError as error:
             raise CurrencyExchangeError(error)

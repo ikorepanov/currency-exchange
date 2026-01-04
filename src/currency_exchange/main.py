@@ -7,7 +7,9 @@ from typing import Any
 from loguru import logger
 
 from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
-from currency_exchange.models import Currency, Rate
+from currency_exchange.models import CurrencyDto, CurrencyOld, Rate
+from currency_exchange.repository import Repository
+from currency_exchange.service import Service
 from currency_exchange.services import RateService
 from currency_exchange.storages import CurrencyStorage, RateStorage
 
@@ -22,7 +24,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         rate_service = RateService()
 
         if first_segment == 'currencies' and number_of_segments == 1:
-            self.read_all_entities_from(currency_storage)
+            self.get_currencies()
         elif first_segment == 'currency':
             if number_of_segments == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
@@ -60,6 +62,22 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    def get_repository(self) -> Repository:
+        return Repository()
+
+    def get_service(self) -> Service:
+        return Service()
+
+    def get_currencies(self) -> None:
+        try:
+            currencies = self.get_repository().get_all_currencies()
+            currency_dtos = [
+                self.get_service().to_dto(currency) for currency in currencies
+            ]
+            self.send_ok(currency_dtos)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
     def read_all_rates_with(self, service: RateService) -> None:
         try:
             self.send_ok(service.load_all_rates())
@@ -69,21 +87,24 @@ class RequestHandler(BaseHTTPRequestHandler):
     def read_currency(self, storage: CurrencyStorage, cur_code: str) -> None:
         try:
             currency_object = storage.load_one(cur_code)
-            self.send_ok(currency_object)
+            self.send_ok(currency_object)  # type: ignore
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
         except NoCurrencyError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    def send_ok(self, data: Currency | Rate | list[Currency] | list[Rate]) -> None:
-        body = self.prepare_body(data)
+    def send_ok(
+        self,
+        data: CurrencyDto | Rate | list[CurrencyDto] | list[Rate] | list[CurrencyOld],
+    ) -> None:
+        body = self.prepare_body(data)  # type: ignore
         self.send_headers(HTTPStatus.OK, body)
         self.wfile.write(body)
 
     def prepare_body(
-        self, data: Currency | Rate | list[Currency] | list[Rate]
+        self, data: CurrencyDto | Rate | list[CurrencyDto] | list[Rate]
     ) -> bytes:
-        if isinstance(data, (Currency, Rate)):
+        if isinstance(data, (CurrencyDto, Rate)):
             return json.dumps(
                 self.change_keys_for_json(asdict(data)), ensure_ascii=False
             ).encode('utf-8')
