@@ -64,18 +64,14 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_currencies(self) -> None:
         service = self.get_service()
         try:
-            currencies = service.get_all_currencies()
-            currencies_dto = [service.to_dto(currency) for currency in currencies]
-            self.send_ok(currencies_dto)
+            self.send_ok(service.get_all_currencies())
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def get_currency(self, cur_code: str) -> None:
         service = self.get_service()
         try:
-            currency = service.get_one_currency(cur_code)
-            currency_dto = service.to_dto(currency)
-            self.send_ok(currency_dto)
+            self.send_ok(service.get_one_currency(cur_code))
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
         except NoCurrencyError:
