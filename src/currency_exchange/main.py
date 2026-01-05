@@ -18,8 +18,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         first_segment = self.get_first_path_segment()
         number_of_segments = self.get_number_of_path_segments()
 
-        currency_storage = CurrencyStorage()
-
         rate_service = RateService()
 
         if first_segment == 'currencies' and number_of_segments == 1:
@@ -28,8 +26,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             if number_of_segments == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
             elif number_of_segments == 2:
-                cur_code = self.get_second_path_segment()
-                self.read_currency(currency_storage, cur_code)
+                self.get_currency(self.get_second_path_segment())
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
             self.read_all_rates_with(rate_service)
         elif first_segment == 'exchangeRate':
@@ -73,20 +70,22 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    def get_currency(self, cur_code: str) -> None:
+        service = self.get_service()
+        try:
+            currency = service.get_one_currency(cur_code)
+            currency_dto = service.to_dto(currency)
+            self.send_ok(currency_dto)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except NoCurrencyError:
+            self.send_error(HTTPStatus.NOT_FOUND)
+
     def read_all_rates_with(self, service: RateService) -> None:
         try:
             self.send_ok(service.load_all_rates())
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
-
-    def read_currency(self, storage: CurrencyStorage, cur_code: str) -> None:
-        try:
-            currency_object = storage.load_one(cur_code)
-            self.send_ok(currency_object)  # type: ignore
-        except CurrencyExchangeError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
-        except NoCurrencyError:
-            self.send_error(HTTPStatus.NOT_FOUND)
 
     def send_ok(
         self,

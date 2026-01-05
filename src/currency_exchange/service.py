@@ -8,6 +8,9 @@ class Service:
     def get_all_currencies(self) -> list[Currency]:
         return self.repository.get_all_currencies()
 
+    def get_one_currency(self, cur_code: str) -> Currency:
+        return self.repository.get_one_currency(cur_code)
+
     def to_dto(self, currency: Currency) -> CurrencyDto:
         return CurrencyDto(
             currency.id, currency.full_name, currency.code, currency.sign
