@@ -2,14 +2,6 @@ from dataclasses import dataclass
 
 
 @dataclass
-class CurrencyOld:
-    id: int
-    name: str
-    code: str
-    sign: str
-
-
-@dataclass
 class CurrencyDto:
     id: int
     name: str
@@ -18,18 +10,10 @@ class CurrencyDto:
 
 
 @dataclass
-class Rate:
+class RateDto:
     id: int
-    base_currency: CurrencyOld
-    target_currency: CurrencyOld
-    rate: float
-
-
-@dataclass
-class RateWithIds:
-    id: int
-    base_currency_id: int
-    target_currency_id: int
+    base_currency: CurrencyDto
+    target_currency: CurrencyDto
     rate: float
 
 
@@ -70,7 +54,7 @@ class Currency:
         self._full_name = value
 
 
-class RateFull:
+class Rate:
     def __init__(self, id: int, base_id: int, target_id: int, rate: float):
         self.id = id
         self.base_id = base_id
