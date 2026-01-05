@@ -8,7 +8,6 @@ from loguru import logger
 
 from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
 from currency_exchange.models import CurrencyDto, CurrencyOld, Rate
-from currency_exchange.repository import Repository
 from currency_exchange.service import Service
 from currency_exchange.services import RateService
 from currency_exchange.storages import CurrencyStorage, RateStorage
@@ -62,19 +61,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def get_repository(self) -> Repository:
-        return Repository()
-
     def get_service(self) -> Service:
         return Service()
 
     def get_currencies(self) -> None:
+        service = self.get_service()
         try:
-            currencies = self.get_repository().get_all_currencies()
-            currency_dtos = [
-                self.get_service().to_dto(currency) for currency in currencies
-            ]
-            self.send_ok(currency_dtos)
+            currencies = service.get_all_currencies()
+            currencies_dto = [service.to_dto(currency) for currency in currencies]
+            self.send_ok(currencies_dto)
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
