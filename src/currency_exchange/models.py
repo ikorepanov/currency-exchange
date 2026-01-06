@@ -10,6 +10,13 @@ class CurrencyDto:
 
 
 @dataclass
+class CurrencyPostDto:
+    name: str
+    code: str
+    sign: str
+
+
+@dataclass
 class RateDto:
     id: int
     base_currency: CurrencyDto
@@ -18,11 +25,19 @@ class RateDto:
 
 
 class Currency:
-    def __init__(self, id: int, code: str, full_name: str, sign: str):
+    def __init__(self, id: int | None, code: str, full_name: str, sign: str):
         self.id = id
         self.code = code
         self.full_name = full_name
         self.sign = sign
+
+    @property
+    def id(self) -> int | None:
+        return self._id
+
+    @id.setter
+    def id(self, value: int | None) -> None:
+        self._id = value
 
     @property
     def code(self) -> str:

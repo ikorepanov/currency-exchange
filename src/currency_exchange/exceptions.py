@@ -8,3 +8,7 @@ class NoCurrencyError(Exception):
 
 class NoRateError(Exception):
     pass
+
+
+class CurrencyAlreadyExistsError(Exception):
+    pass

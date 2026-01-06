@@ -3,15 +3,17 @@ from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
+from urllib.parse import parse_qs
 
 from loguru import logger
 
 from currency_exchange.exceptions import (
+    CurrencyAlreadyExistsError,
     CurrencyExchangeError,
     NoCurrencyError,
     NoRateError,
 )
-from currency_exchange.models import CurrencyDto, RateDto
+from currency_exchange.models import CurrencyDto, CurrencyPostDto, RateDto
 from currency_exchange.service import Service
 
 
@@ -52,11 +54,21 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         first_segment = self.get_first_path_segment()
+        number_of_segments = self.get_number_of_path_segments()
 
-        if first_segment == 'currencies':
-            self.save_currency()
-        elif first_segment == 'exchangeRates':
+        if first_segment == 'currencies' and number_of_segments == 1:
+            params = self.get_request_params()
+            name_lst = params.get('name')
+            code_lst = params.get('code')
+            sign_lst = params.get('sign')
+            if name_lst is not None and code_lst is not None and sign_lst is not None:
+                self.save_currency(name_lst[0], code_lst[0], sign_lst[0])
+            else:
+                self.send_error(HTTPStatus.BAD_REQUEST)
+
+        elif first_segment == 'exchangeRates' and number_of_segments == 1:
             self.save_rate()
+
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -72,14 +84,14 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_currencies(self) -> None:
         service = self.get_service()
         try:
-            self.send_ok(service.get_all_currencies())
+            self.send_ok(HTTPStatus.OK, service.get_all_currencies())
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def get_currency(self, cur_code: str) -> None:
         service = self.get_service()
         try:
-            self.send_ok(service.get_currency_with_code(cur_code))
+            self.send_ok(HTTPStatus.OK, service.get_currency_with_code(cur_code))
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
         except NoCurrencyError:
@@ -88,18 +100,37 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rates(self) -> None:
         service = self.get_service()
         try:
-            self.send_ok(service.get_all_rates())
+            self.send_ok(HTTPStatus.OK, service.get_all_rates())
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def get_rate(self, code_pair: str) -> None:
         service = self.get_service()
         try:
-            self.send_ok(service.get_rate_with_cur_ids(code_pair))
+            self.send_ok(HTTPStatus.OK, service.get_rate_with_cur_ids(code_pair))
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
         except (NoCurrencyError, NoRateError):
             self.send_error(HTTPStatus.NOT_FOUND)
+
+    def save_currency(self, name: str, code: str, sign: str) -> None:
+        service = self.get_service()
+
+        try:
+            self.send_ok(
+                HTTPStatus.CREATED,
+                service.save_currency(CurrencyPostDto(name, code, sign)),
+            )
+        except ValueError:
+            self.send_error(HTTPStatus.BAD_REQUEST)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except CurrencyAlreadyExistsError:
+            self.send_error(HTTPStatus.CONFLICT)
+
+    def get_request_params(self) -> dict[str, Any]:
+        data_string = self.rfile.read(int(self.headers['Content-Length']))
+        return parse_qs(data_string.decode())
 
     def is_valid_pair(self, code_pair: str) -> bool:
         return (
@@ -119,10 +150,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def send_ok(
         self,
+        code: int,
         data: CurrencyDto | RateDto | list[CurrencyDto] | list[RateDto],
     ) -> None:
         body = self.prepare_body(data)
-        self.send_headers(HTTPStatus.OK, body)
+        self.send_headers(code, body)
         self.wfile.write(body)
 
     def prepare_body(
@@ -164,9 +196,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def exchange_currencies(self) -> None:
-        pass
-
-    def save_currency(self) -> None:
         pass
 
     def save_rate(self) -> None:

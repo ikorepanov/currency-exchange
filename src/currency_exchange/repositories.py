@@ -1,6 +1,7 @@
-from sqlite3 import OperationalError, connect
+from sqlite3 import IntegrityError, OperationalError, connect
 
 from currency_exchange.exceptions import (
+    CurrencyAlreadyExistsError,
     CurrencyExchangeError,
     NoCurrencyError,
     NoRateError,
@@ -21,6 +22,25 @@ class CurrencyRepository:
     def get_currency_with_id(self, cur_id: int) -> Currency:
         raw_data = self._retrieve_one_with_id(cur_id)
         return Currency(cur_id, raw_data[0], raw_data[1], raw_data[2])
+
+    def save_currency(self, currency: Currency) -> Currency:
+        currency.id = self._save_one(currency.code, currency.full_name, currency.sign)
+        return currency
+
+    def _save_one(self, code: str, name: str, sign: str) -> int:
+        try:
+            with connect('./src/currency_exchange/db.sqlite') as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    'INSERT INTO Currencies (Code, FullName, Sign) VALUES (?, ?, ?)',
+                    (code, name, sign),
+                )
+                cur.execute('SELECT last_insert_rowid()')
+            return cur.fetchone()[0]
+        except OperationalError as error:
+            raise CurrencyExchangeError(error)
+        except IntegrityError:
+            raise CurrencyAlreadyExistsError
 
     def _retrieve_all(self) -> list[tuple[int, str, str, str]]:
         try:
@@ -93,7 +113,8 @@ class RateRepository:
             with connect('./src/currency_exchange/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
-                    'SELECT ID, Rate FROM ExchangeRates WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
+                    'SELECT ID, Rate FROM ExchangeRates '
+                    'WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
                     (base_currency_id, target_currency_id),
                 )
                 query_result = cur.fetchone()

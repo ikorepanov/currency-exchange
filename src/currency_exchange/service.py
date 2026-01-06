@@ -1,4 +1,10 @@
-from currency_exchange.models import Currency, CurrencyDto, Rate, RateDto
+from currency_exchange.models import (
+    Currency,
+    CurrencyDto,
+    CurrencyPostDto,
+    Rate,
+    RateDto,
+)
 from currency_exchange.repositories import CurrencyRepository, RateRepository
 
 
@@ -45,10 +51,17 @@ class Service:
             rate.rate,
         )
 
-    def _currency_to_dto(self, currency: Currency) -> CurrencyDto:
-        return CurrencyDto(
-            currency.id, currency.full_name, currency.code, currency.sign
+    def save_currency(self, currency_dto: CurrencyPostDto) -> CurrencyDto:
+        currency = Currency(
+            None, currency_dto.code, currency_dto.name, currency_dto.sign
         )
+        currency_with_id = self.currency_repository.save_currency(currency)
+        return self._currency_to_dto(currency_with_id)
+
+    def _currency_to_dto(self, currency: Currency) -> CurrencyDto:
+        if currency.id is not None:
+            id = currency.id
+        return CurrencyDto(id, currency.full_name, currency.code, currency.sign)
 
     def _rate_to_dto(
         self,
