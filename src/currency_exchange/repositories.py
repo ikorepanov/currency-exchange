@@ -1,6 +1,10 @@
 from sqlite3 import OperationalError, connect
 
-from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
+from currency_exchange.exceptions import (
+    CurrencyExchangeError,
+    NoCurrencyError,
+    NoRateError,
+)
 from currency_exchange.models import Currency, Rate
 
 
@@ -62,11 +66,39 @@ class RateRepository:
     def get_all_rates(self) -> list[Rate]:
         return [Rate(row[0], row[1], row[2], row[3]) for row in self._retrieve_all()]
 
+    def get_rate_with_cur_ids(
+        self, base_currency_id: int, target_currency_id: int
+    ) -> Rate:
+        raw_data = self._retrieve_one_with_cur_ids(base_currency_id, target_currency_id)
+        return Rate(
+            raw_data[0],
+            base_currency_id,
+            target_currency_id,
+            raw_data[1],
+        )
+
     def _retrieve_all(self) -> list[tuple[int, int, int, float]]:
         try:
             with connect('./src/currency_exchange/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute('SELECT * FROM ExchangeRates')
             return cur.fetchall()
+        except OperationalError as error:
+            raise CurrencyExchangeError(error)
+
+    def _retrieve_one_with_cur_ids(
+        self, base_currency_id: int, target_currency_id: int
+    ) -> tuple[int, float]:
+        try:
+            with connect('./src/currency_exchange/db.sqlite') as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    'SELECT ID, Rate FROM ExchangeRates WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
+                    (base_currency_id, target_currency_id),
+                )
+                query_result = cur.fetchone()
+            if query_result is None:
+                raise NoRateError()
+            return query_result
         except OperationalError as error:
             raise CurrencyExchangeError(error)

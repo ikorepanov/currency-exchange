@@ -24,18 +24,41 @@ class Service:
 
     def get_all_rates(self) -> list[RateDto]:
         return [
-            self._rate_to_dto(rate) for rate in self.rate_repository.get_all_rates()
+            self._rate_to_dto(
+                rate,
+                self.get_currency_with_id(rate.base_id),
+                self.get_currency_with_id(rate.target_id),
+            )
+            for rate in self.rate_repository.get_all_rates()
         ]
+
+    def get_rate_with_cur_ids(self, code_pair: str) -> RateDto:
+        base_currency_dto = self.get_currency_with_code(code_pair[:3])
+        target_currency_dto = self.get_currency_with_code(code_pair[3:])
+        rate = self.rate_repository.get_rate_with_cur_ids(
+            base_currency_dto.id, target_currency_dto.id
+        )
+        return RateDto(
+            rate.id,
+            base_currency_dto,
+            target_currency_dto,
+            rate.rate,
+        )
 
     def _currency_to_dto(self, currency: Currency) -> CurrencyDto:
         return CurrencyDto(
             currency.id, currency.full_name, currency.code, currency.sign
         )
 
-    def _rate_to_dto(self, rate: Rate) -> RateDto:
+    def _rate_to_dto(
+        self,
+        rate: Rate,
+        base_currency_dto: CurrencyDto,
+        target_currency_dto: CurrencyDto,
+    ) -> RateDto:
         return RateDto(
             rate.id,
-            self.get_currency_with_id(rate.base_id),
-            self.get_currency_with_id(rate.target_id),
+            base_currency_dto,
+            target_currency_dto,
             rate.rate,
         )

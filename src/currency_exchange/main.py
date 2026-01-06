@@ -6,8 +6,12 @@ from typing import Any
 
 from loguru import logger
 
-from currency_exchange.exceptions import CurrencyExchangeError, NoCurrencyError
-from currency_exchange.models import CurrencyDto, Rate, RateDto
+from currency_exchange.exceptions import (
+    CurrencyExchangeError,
+    NoCurrencyError,
+    NoRateError,
+)
+from currency_exchange.models import CurrencyDto, RateDto
 from currency_exchange.service import Service
 
 
@@ -18,17 +22,31 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if first_segment == 'currencies' and number_of_segments == 1:
             self.get_currencies()
+
         elif first_segment == 'currency':
             if number_of_segments == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
             elif number_of_segments == 2:
-                self.get_currency(self.get_second_path_segment())
+                cur_code = self.get_second_path_segment()
+                self.get_currency(cur_code) if self.is_valid_cur_code(
+                    cur_code
+                ) else self.send_error(HTTPStatus.BAD_REQUEST)
+
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
             self.get_rates()
+
         elif first_segment == 'exchangeRate':
-            self.read_rate()
+            if number_of_segments == 1:
+                self.send_error(HTTPStatus.BAD_REQUEST)
+            elif number_of_segments == 2:
+                code_pair = self.get_second_path_segment()
+                self.get_rate(code_pair) if self.is_valid_pair(
+                    code_pair
+                ) else self.send_error(HTTPStatus.BAD_REQUEST)
+
         elif first_segment == 'exchange':
             self.exchange_currencies()
+
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -74,18 +92,43 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    def get_rate(self, code_pair: str) -> None:
+        service = self.get_service()
+        try:
+            self.send_ok(service.get_rate_with_cur_ids(code_pair))
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except (NoCurrencyError, NoRateError):
+            self.send_error(HTTPStatus.NOT_FOUND)
+
+    def is_valid_pair(self, code_pair: str) -> bool:
+        return (
+            code_pair.isalpha()
+            and code_pair.isascii()
+            and code_pair.isupper()
+            and len(code_pair) == 6
+        )
+
+    def is_valid_cur_code(self, cur_code: str) -> bool:
+        return (
+            cur_code.isalpha()
+            and cur_code.isascii()
+            and cur_code.isupper()
+            and len(cur_code) == 3
+        )
+
     def send_ok(
         self,
-        data: CurrencyDto | list[CurrencyDto] | list[RateDto],
+        data: CurrencyDto | RateDto | list[CurrencyDto] | list[RateDto],
     ) -> None:
         body = self.prepare_body(data)
         self.send_headers(HTTPStatus.OK, body)
         self.wfile.write(body)
 
     def prepare_body(
-        self, data: CurrencyDto | list[CurrencyDto] | list[RateDto]
+        self, data: CurrencyDto | RateDto | list[CurrencyDto] | list[RateDto]
     ) -> bytes:
-        if isinstance(data, (CurrencyDto, Rate)):
+        if isinstance(data, (CurrencyDto, RateDto)):
             return json.dumps(
                 self.change_keys_for_json(asdict(data)), ensure_ascii=False
             ).encode('utf-8')
@@ -119,9 +162,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-
-    def read_rate(self) -> None:
-        pass
 
     def exchange_currencies(self) -> None:
         pass

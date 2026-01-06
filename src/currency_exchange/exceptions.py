@@ -4,3 +4,7 @@ class CurrencyExchangeError(Exception):
 
 class NoCurrencyError(Exception):
     pass
+
+
+class NoRateError(Exception):
+    pass
