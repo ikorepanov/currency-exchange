@@ -12,3 +12,7 @@ class NoRateError(Exception):
 
 class CurrencyAlreadyExistsError(Exception):
     pass
+
+
+class RateAlreadyExistsError(Exception):
+    pass

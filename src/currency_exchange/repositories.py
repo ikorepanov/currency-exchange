@@ -5,6 +5,7 @@ from currency_exchange.exceptions import (
     CurrencyExchangeError,
     NoCurrencyError,
     NoRateError,
+    RateAlreadyExistsError,
 )
 from currency_exchange.models import Currency, Rate
 
@@ -96,6 +97,25 @@ class RateRepository:
             target_currency_id,
             raw_data[1],
         )
+
+    def save_rate(self, rate: Rate) -> Rate:
+        rate.id = self._save_one(rate.base_id, rate.target_id, rate.rate)
+        return rate
+
+    def _save_one(self, base_id: int, target_id: int, rate: float) -> int:
+        try:
+            with connect('./src/currency_exchangee/db.sqlite') as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    'INSERT INTO ExchangeRates (BaseCurrencyId, TargetCurrencyId, Rate) VALUES (?, ?, ?)',
+                    (base_id, target_id, rate),
+                )
+                cur.execute('SELECT last_insert_rowid()')
+            return cur.fetchone()[0]
+        except OperationalError as error:
+            raise CurrencyExchangeError(error)
+        except IntegrityError:
+            raise RateAlreadyExistsError
 
     def _retrieve_all(self) -> list[tuple[int, int, int, float]]:
         try:

@@ -4,6 +4,7 @@ from currency_exchange.models import (
     CurrencyPostDto,
     Rate,
     RateDto,
+    RatePostDto,
 )
 from currency_exchange.repositories import CurrencyRepository, RateRepository
 
@@ -41,14 +42,12 @@ class Service:
     def get_rate_with_cur_ids(self, code_pair: str) -> RateDto:
         base_currency_dto = self.get_currency_with_code(code_pair[:3])
         target_currency_dto = self.get_currency_with_code(code_pair[3:])
-        rate = self.rate_repository.get_rate_with_cur_ids(
-            base_currency_dto.id, target_currency_dto.id
-        )
-        return RateDto(
-            rate.id,
+        return self._rate_to_dto(
+            self.rate_repository.get_rate_with_cur_ids(
+                base_currency_dto.id, target_currency_dto.id
+            ),
             base_currency_dto,
             target_currency_dto,
-            rate.rate,
         )
 
     def save_currency(self, currency_dto: CurrencyPostDto) -> CurrencyDto:
@@ -57,6 +56,20 @@ class Service:
         )
         currency_with_id = self.currency_repository.save_currency(currency)
         return self._currency_to_dto(currency_with_id)
+
+    def save_rate(self, rate_post_dto: RatePostDto) -> RateDto:
+        base_currency_dto = self.get_currency_with_code(
+            rate_post_dto.base_currency_code
+        )
+        target_currency_dto = self.get_currency_with_code(
+            rate_post_dto.target_currency_code
+        )
+        rate = Rate(
+            None, base_currency_dto.id, target_currency_dto.id, rate_post_dto.rate
+        )
+        return self._rate_to_dto(
+            self.rate_repository.save_rate(rate), base_currency_dto, target_currency_dto
+        )
 
     def _currency_to_dto(self, currency: Currency) -> CurrencyDto:
         if currency.id is not None:
@@ -69,8 +82,10 @@ class Service:
         base_currency_dto: CurrencyDto,
         target_currency_dto: CurrencyDto,
     ) -> RateDto:
+        if rate.id is not None:
+            id = rate.id
         return RateDto(
-            rate.id,
+            id,
             base_currency_dto,
             target_currency_dto,
             rate.rate,

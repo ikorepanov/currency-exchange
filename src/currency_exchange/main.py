@@ -12,8 +12,9 @@ from currency_exchange.exceptions import (
     CurrencyExchangeError,
     NoCurrencyError,
     NoRateError,
+    RateAlreadyExistsError,
 )
-from currency_exchange.models import CurrencyDto, CurrencyPostDto, RateDto
+from currency_exchange.models import CurrencyDto, CurrencyPostDto, RateDto, RatePostDto
 from currency_exchange.service import Service
 
 
@@ -67,7 +68,20 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.BAD_REQUEST)
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
-            self.save_rate()
+            params = self.get_request_params()
+            base_currency_code = params.get('baseCurrencyCode')
+            target_currency_code = params.get('targetCurrencyCode')
+            rate = params.get('rate')
+            if (
+                base_currency_code is not None
+                and target_currency_code is not None
+                and rate is not None
+            ):
+                self.save_rate(
+                    base_currency_code[0], target_currency_code[0], float(rate[0])
+                )
+            else:
+                self.send_error(HTTPStatus.BAD_REQUEST)
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -126,6 +140,27 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
         except CurrencyAlreadyExistsError:
+            self.send_error(HTTPStatus.CONFLICT)
+
+    def save_rate(
+        self, base_currency_code: str, target_currency_code: str, rate: float
+    ) -> None:
+        service = self.get_service()
+
+        try:
+            self.send_ok(
+                HTTPStatus.CREATED,
+                service.save_rate(
+                    RatePostDto(base_currency_code, target_currency_code, rate)
+                ),
+            )
+        except ValueError:
+            self.send_error(HTTPStatus.BAD_REQUEST)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except NoCurrencyError:
+            self.send_error(HTTPStatus.NOT_FOUND)
+        except RateAlreadyExistsError:
             self.send_error(HTTPStatus.CONFLICT)
 
     def get_request_params(self) -> dict[str, Any]:
@@ -196,9 +231,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def exchange_currencies(self) -> None:
-        pass
-
-    def save_rate(self) -> None:
         pass
 
     def update_rate(self) -> None:
