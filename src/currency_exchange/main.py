@@ -7,6 +7,7 @@ from urllib.parse import parse_qs
 
 from loguru import logger
 
+from currency_exchange.dtos import CurrencyDto, CurrencyPostDto, RateDto, RatePostDto
 from currency_exchange.exceptions import (
     CurrencyAlreadyExistsError,
     CurrencyExchangeError,
@@ -14,7 +15,6 @@ from currency_exchange.exceptions import (
     NoRateError,
     RateAlreadyExistsError,
 )
-from currency_exchange.models import CurrencyDto, CurrencyPostDto, RateDto, RatePostDto
 from currency_exchange.service import Service
 
 

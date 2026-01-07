@@ -1,11 +1,5 @@
-from currency_exchange.models import (
-    Currency,
-    CurrencyDto,
-    CurrencyPostDto,
-    Rate,
-    RateDto,
-    RatePostDto,
-)
+from currency_exchange.dtos import CurrencyDto, CurrencyPostDto, RateDto, RatePostDto
+from currency_exchange.models import Currency, Rate
 from currency_exchange.repositories import CurrencyRepository, RateRepository
 
 
