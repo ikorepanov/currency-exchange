@@ -40,9 +40,7 @@ class Currency:
             and value[0].isupper()
             and value.isascii()
         ):
-            raise ValueError(
-                'full_name must be in English and begin with a capital letter.'
-            )
+            raise ValueError('name must be in English letters and begin with a capital')
         self._full_name = value
 
 

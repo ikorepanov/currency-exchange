@@ -93,7 +93,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             if name_lst is not None and code_lst is not None and sign_lst is not None:
                 self.save_currency(name_lst[0], code_lst[0], sign_lst[0])
             else:
-                self.send_error(HTTPStatus.BAD_REQUEST)
+                self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
             params = self.get_request_params()
@@ -178,12 +178,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.CREATED,
                 service.save_currency(CurrencyPostDto(name, code, sign)),
             )
-        except ValueError:
-            self.send_error(HTTPStatus.BAD_REQUEST)
+        except ValueError as error:
+            self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except CurrencyAlreadyExistsError:
-            self.send_error(HTTPStatus.CONFLICT)
+            self.send_error(HTTPStatus.CONFLICT, 'Валюта с таким кодом уже существует')
 
     def save_rate(
         self, base_currency_code: str, target_currency_code: str, rate: float
