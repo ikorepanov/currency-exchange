@@ -1,4 +1,9 @@
-from currency_exchange.dtos import CurrencyDto, CurrencyPostDto, RateDto, RatePostDto
+from currency_exchange.dtos import (
+    CurrencyDto,
+    CurrencyPostDto,
+    RateDto,
+    RatePostUpdateDto,
+)
 from currency_exchange.models import Currency, Rate
 from currency_exchange.repositories import CurrencyRepository, RateRepository
 
@@ -51,7 +56,7 @@ class Service:
         currency_with_id = self.currency_repository.save_currency(currency)
         return self._currency_to_dto(currency_with_id)
 
-    def save_rate(self, rate_post_dto: RatePostDto) -> RateDto:
+    def save_rate(self, rate_post_dto: RatePostUpdateDto) -> RateDto:
         base_currency_dto = self.get_currency_with_code(
             rate_post_dto.base_currency_code
         )
@@ -63,6 +68,25 @@ class Service:
         )
         return self._rate_to_dto(
             self.rate_repository.save_rate(rate), base_currency_dto, target_currency_dto
+        )
+
+    def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
+        base_currency_dto = self.get_currency_with_code(
+            rate_update_dto.base_currency_code
+        )
+        target_currency_dto = self.get_currency_with_code(
+            rate_update_dto.target_currency_code
+        )
+        rate = Rate(
+            None,
+            base_currency_dto.id,
+            target_currency_dto.id,
+            rate_update_dto.rate,
+        )
+        return self._rate_to_dto(
+            self.rate_repository.update_rate(rate),
+            base_currency_dto,
+            target_currency_dto,
         )
 
     def _currency_to_dto(self, currency: Currency) -> CurrencyDto:

@@ -4,6 +4,7 @@ from currency_exchange.exceptions import (
     CurrencyAlreadyExistsError,
     CurrencyExchangeError,
     NoCurrencyError,
+    NoCurrencyPairError,
     NoRateError,
     RateAlreadyExistsError,
 )
@@ -102,12 +103,17 @@ class RateRepository:
         rate.id = self._save_one(rate.base_id, rate.target_id, rate.rate)
         return rate
 
+    def update_rate(self, rate: Rate) -> Rate:
+        rate.id = self._update_one(rate.base_id, rate.target_id, rate.rate)
+        return rate
+
     def _save_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
-            with connect('./src/currency_exchangee/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
-                    'INSERT INTO ExchangeRates (BaseCurrencyId, TargetCurrencyId, Rate) VALUES (?, ?, ?)',
+                    'INSERT INTO ExchangeRates '
+                    '(BaseCurrencyId, TargetCurrencyId, Rate) VALUES (?, ?, ?)',
                     (base_id, target_id, rate),
                 )
                 cur.execute('SELECT last_insert_rowid()')
@@ -141,5 +147,26 @@ class RateRepository:
             if query_result is None:
                 raise NoRateError()
             return query_result
+        except OperationalError as error:
+            raise CurrencyExchangeError(error)
+
+    def _update_one(self, base_id: int, target_id: int, rate: float) -> int:
+        try:
+            with connect('./src/currency_exchange/db.sqlite') as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    'UPDATE ExchangeRates SET Rate = ? '
+                    'WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
+                    (rate, base_id, target_id),
+                )
+                cur.execute(
+                    'SELECT ID FROM ExchangeRates '
+                    'WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
+                    (base_id, target_id),
+                )
+                query_result = cur.fetchone()
+            if query_result is None:
+                raise NoCurrencyPairError()
+            return query_result[0]
         except OperationalError as error:
             raise CurrencyExchangeError(error)

@@ -7,11 +7,17 @@ from urllib.parse import parse_qs
 
 from loguru import logger
 
-from currency_exchange.dtos import CurrencyDto, CurrencyPostDto, RateDto, RatePostDto
+from currency_exchange.dtos import (
+    CurrencyDto,
+    CurrencyPostDto,
+    RateDto,
+    RatePostUpdateDto,
+)
 from currency_exchange.exceptions import (
     CurrencyAlreadyExistsError,
     CurrencyExchangeError,
     NoCurrencyError,
+    NoCurrencyPairError,
     NoRateError,
     RateAlreadyExistsError,
 )
@@ -69,16 +75,18 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
             params = self.get_request_params()
-            base_currency_code = params.get('baseCurrencyCode')
-            target_currency_code = params.get('targetCurrencyCode')
-            rate = params.get('rate')
+            base_currency_code_lst = params.get('baseCurrencyCode')
+            target_currency_code_lst = params.get('targetCurrencyCode')
+            rate_lst = params.get('rate')
             if (
-                base_currency_code is not None
-                and target_currency_code is not None
-                and rate is not None
+                base_currency_code_lst is not None
+                and target_currency_code_lst is not None
+                and rate_lst is not None
             ):
                 self.save_rate(
-                    base_currency_code[0], target_currency_code[0], float(rate[0])
+                    base_currency_code_lst[0],
+                    target_currency_code_lst[0],
+                    float(rate_lst[0]),
                 )
             else:
                 self.send_error(HTTPStatus.BAD_REQUEST)
@@ -87,8 +95,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_PATCH(self) -> None:
+        number_of_segments = self.get_number_of_path_segments()
+
         if self.get_first_path_segment() == 'exchangeRate':
-            self.update_rate()
+            if number_of_segments == 1:
+                self.send_error(HTTPStatus.BAD_REQUEST)
+            elif number_of_segments == 2:
+                code_pair = self.get_second_path_segment()
+
+                params = self.get_request_params()
+                rate_lst = params.get('rate')
+
+                self.update_rate(code_pair, float(rate_lst[0])) if self.is_valid_pair(
+                    code_pair
+                ) and rate_lst is not None else self.send_error(HTTPStatus.BAD_REQUEST)
+
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -151,7 +172,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_ok(
                 HTTPStatus.CREATED,
                 service.save_rate(
-                    RatePostDto(base_currency_code, target_currency_code, rate)
+                    RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 ),
             )
         except ValueError:
@@ -162,6 +183,23 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
         except RateAlreadyExistsError:
             self.send_error(HTTPStatus.CONFLICT)
+
+    def update_rate(self, code_pair: str, rate: float) -> None:
+        service = self.get_service()
+
+        try:
+            self.send_ok(
+                HTTPStatus.OK,
+                service.update_rate(
+                    RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
+                ),
+            )
+        except ValueError:
+            self.send_error(HTTPStatus.BAD_REQUEST)
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except NoCurrencyPairError:
+            self.send_error(HTTPStatus.NOT_FOUND)
 
     def get_request_params(self) -> dict[str, Any]:
         data_string = self.rfile.read(int(self.headers['Content-Length']))
@@ -231,9 +269,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def exchange_currencies(self) -> None:
-        pass
-
-    def update_rate(self) -> None:
         pass
 
     def get_first_path_segment(self) -> str:

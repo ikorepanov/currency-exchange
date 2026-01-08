@@ -16,3 +16,7 @@ class CurrencyAlreadyExistsError(Exception):
 
 class RateAlreadyExistsError(Exception):
     pass
+
+
+class NoCurrencyPairError(Exception):
+    pass

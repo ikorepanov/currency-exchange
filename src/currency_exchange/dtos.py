@@ -25,7 +25,7 @@ class RateDto:
 
 
 @dataclass
-class RatePostDto:
+class RatePostUpdateDto:
     base_currency_code: str
     target_currency_code: str
     rate: float
