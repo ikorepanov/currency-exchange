@@ -1,9 +1,12 @@
 from currency_exchange.dtos import (
     CurrencyDto,
     CurrencyPostDto,
+    ExchangeDto,
+    ExchangePostDto,
     RateDto,
     RatePostUpdateDto,
 )
+from currency_exchange.exceptions import CantConvertError, NoRateError
 from currency_exchange.models import Currency, Rate
 from currency_exchange.repositories import CurrencyRepository, RateRepository
 
@@ -38,7 +41,7 @@ class Service:
             for rate in self.rate_repository.get_all_rates()
         ]
 
-    def get_rate_with_cur_ids(self, code_pair: str) -> RateDto:
+    def get_rate(self, code_pair: str) -> RateDto:
         base_currency_dto = self.get_currency_with_code(code_pair[:3])
         target_currency_dto = self.get_currency_with_code(code_pair[3:])
         return self._rate_to_dto(
@@ -87,6 +90,50 @@ class Service:
             self.rate_repository.update_rate(rate),
             base_currency_dto,
             target_currency_dto,
+        )
+
+    def exchange_currencies(self, exchange_post_dto: ExchangePostDto) -> ExchangeDto:
+        from_currency_code = exchange_post_dto.from_currency_code
+        to_currency_code = exchange_post_dto.to_currency_code
+        amount = exchange_post_dto.amount
+
+        try:
+            exch_rate = self.get_rate(from_currency_code + to_currency_code)
+            rate = exch_rate.rate
+        except NoRateError:
+            try:
+                reversed_rate = self.get_rate(to_currency_code + from_currency_code)
+                rate = reversed_rate.rate
+            except NoRateError:
+                try:
+                    base_cur_dto = self.get_currency_with_code(from_currency_code)
+                    target_cur_dto = self.get_currency_with_code(to_currency_code)
+
+                    interm_rate_1 = self.get_rate('USD' + from_currency_code)
+                    interm_rate_2 = self.get_rate('USD' + to_currency_code)
+                    rate = interm_rate_2.rate / interm_rate_1.rate
+                except NoRateError:
+                    raise CantConvertError()
+                return ExchangeDto(
+                    base_cur_dto,
+                    target_cur_dto,
+                    rate,
+                    amount,
+                    rate * amount,
+                )
+            return ExchangeDto(
+                reversed_rate.target_currency,
+                reversed_rate.base_currency,
+                rate,
+                amount,
+                rate * amount,
+            )
+        return ExchangeDto(
+            exch_rate.base_currency,
+            exch_rate.target_currency,
+            rate,
+            amount,
+            rate * amount,
         )
 
     def _currency_to_dto(self, currency: Currency) -> CurrencyDto:

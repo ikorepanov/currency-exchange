@@ -3,17 +3,20 @@ from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from loguru import logger
 
 from currency_exchange.dtos import (
     CurrencyDto,
     CurrencyPostDto,
+    ExchangeDto,
+    ExchangePostDto,
     RateDto,
     RatePostUpdateDto,
 )
 from currency_exchange.exceptions import (
+    CantConvertError,
     CurrencyAlreadyExistsError,
     CurrencyExchangeError,
     NoCurrencyError,
@@ -54,7 +57,21 @@ class RequestHandler(BaseHTTPRequestHandler):
                 ) else self.send_error(HTTPStatus.BAD_REQUEST)
 
         elif first_segment == 'exchange':
-            self.exchange_currencies()
+            params = self.get_query_params()
+            from_lst = params.get('from')
+            to_lst = params.get('to')
+            amount_lst = params.get('amount')
+            if (
+                from_lst is not None
+                and to_lst is not None
+                and amount_lst is not None
+                and self.is_valid_cur_code(from_lst[0])
+                and self.is_valid_cur_code(to_lst[0])
+                and RequestHandler.is_valid_amount(amount_lst[0])
+            ):
+                self.exchange_currencies(from_lst[0], to_lst[0], float(amount_lst[0]))
+            else:
+                self.send_error(HTTPStatus.BAD_REQUEST)
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -142,7 +159,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rate(self, code_pair: str) -> None:
         service = self.get_service()
         try:
-            self.send_ok(HTTPStatus.OK, service.get_rate_with_cur_ids(code_pair))
+            self.send_ok(HTTPStatus.OK, service.get_rate(code_pair))
         except CurrencyExchangeError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
         except (NoCurrencyError, NoRateError):
@@ -201,9 +218,30 @@ class RequestHandler(BaseHTTPRequestHandler):
         except NoCurrencyPairError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
+    def exchange_currencies(
+        self, from_cur_code: str, to_cur_code: str, amount: float
+    ) -> None:
+        service = self.get_service()
+
+        try:
+            self.send_ok(
+                HTTPStatus.OK,
+                service.exchange_currencies(
+                    ExchangePostDto(from_cur_code, to_cur_code, amount)
+                ),
+            )
+        except CurrencyExchangeError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+        except CantConvertError:
+            self.send_error(HTTPStatus.NOT_FOUND)
+
     def get_request_params(self) -> dict[str, Any]:
         data_string = self.rfile.read(int(self.headers['Content-Length']))
         return parse_qs(data_string.decode())
+
+    def get_query_params(self) -> dict[str, Any]:
+        parsed_path = urlparse(self.path)
+        return parse_qs(parsed_path.query)
 
     def is_valid_pair(self, code_pair: str) -> bool:
         return (
@@ -221,19 +259,35 @@ class RequestHandler(BaseHTTPRequestHandler):
             and len(cur_code) == 3
         )
 
+    @staticmethod
+    def is_valid_amount(str_amount: str) -> bool:
+        if RequestHandler.is_amount_could_be_float(str_amount):
+            return float(str_amount) > 0
+        else:
+            return False
+
+    @staticmethod
+    def is_amount_could_be_float(str_amount: str) -> bool:
+        try:
+            float(str_amount)
+            return True
+        except ValueError:
+            return False
+
     def send_ok(
         self,
         code: int,
-        data: CurrencyDto | RateDto | list[CurrencyDto] | list[RateDto],
+        data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
     ) -> None:
         body = self.prepare_body(data)
         self.send_headers(code, body)
         self.wfile.write(body)
 
     def prepare_body(
-        self, data: CurrencyDto | RateDto | list[CurrencyDto] | list[RateDto]
+        self,
+        data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
     ) -> bytes:
-        if isinstance(data, (CurrencyDto, RateDto)):
+        if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
             return json.dumps(
                 self.change_keys_for_json(asdict(data)), ensure_ascii=False
             ).encode('utf-8')
@@ -267,9 +321,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-
-    def exchange_currencies(self) -> None:
-        pass
 
     def get_first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]

@@ -29,3 +29,19 @@ class RatePostUpdateDto:
     base_currency_code: str
     target_currency_code: str
     rate: float
+
+
+@dataclass
+class ExchangeDto:
+    base_currency: CurrencyDto
+    target_currency: CurrencyDto
+    rate: float
+    amount: float
+    converted_amount: float
+
+
+@dataclass
+class ExchangePostDto:
+    from_currency_code: str
+    to_currency_code: str
+    amount: float

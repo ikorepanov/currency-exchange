@@ -20,3 +20,7 @@ class RateAlreadyExistsError(Exception):
 
 class NoCurrencyPairError(Exception):
     pass
+
+
+class CantConvertError(Exception):
+    pass
