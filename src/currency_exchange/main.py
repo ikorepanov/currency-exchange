@@ -37,12 +37,17 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         elif first_segment == 'currency':
             if number_of_segments == 1:
-                self.send_error(HTTPStatus.BAD_REQUEST)
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе'
+                )
             elif number_of_segments == 2:
                 cur_code = self.get_second_path_segment()
                 self.get_currency(cur_code) if self.is_valid_cur_code(
                     cur_code
-                ) else self.send_error(HTTPStatus.BAD_REQUEST)
+                ) else self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Код должен состоять из 3 заглавных букв английского алфавита',
+                )
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
             self.get_rates()
@@ -147,7 +152,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except NoCurrencyError:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            self.send_error(HTTPStatus.NOT_FOUND, 'Валюта не найдена')
 
     def get_rates(self) -> None:
         service = self.get_service()
