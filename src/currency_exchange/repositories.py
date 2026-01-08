@@ -2,9 +2,9 @@ from sqlite3 import IntegrityError, OperationalError, connect
 
 from currency_exchange.exceptions import (
     CurrencyAlreadyExistsError,
-    CurrencyExchangeError,
     NoCurrencyError,
     NoCurrencyPairError,
+    NoDataBaseConnectionError,
     NoRateError,
     RateAlreadyExistsError,
 )
@@ -39,8 +39,8 @@ class CurrencyRepository:
                 )
                 cur.execute('SELECT last_insert_rowid()')
             return cur.fetchone()[0]
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
         except IntegrityError:
             raise CurrencyAlreadyExistsError
 
@@ -50,8 +50,8 @@ class CurrencyRepository:
                 cur = conn.cursor()
                 cur.execute('SELECT * FROM Currencies')
             return cur.fetchall()
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
 
     def _retrieve_one_with_code(self, cur_code: str) -> tuple[int, str, str]:
         try:
@@ -65,8 +65,8 @@ class CurrencyRepository:
             if query_result is None:
                 raise NoCurrencyError()
             return query_result
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
 
     def _retrieve_one_with_id(self, cur_id: int) -> tuple[str, str, str]:
         try:
@@ -80,8 +80,8 @@ class CurrencyRepository:
             if query_result is None:
                 raise NoCurrencyError()
             return query_result
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
 
 
 class RateRepository:
@@ -118,8 +118,8 @@ class RateRepository:
                 )
                 cur.execute('SELECT last_insert_rowid()')
             return cur.fetchone()[0]
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
         except IntegrityError:
             raise RateAlreadyExistsError
 
@@ -129,8 +129,8 @@ class RateRepository:
                 cur = conn.cursor()
                 cur.execute('SELECT * FROM ExchangeRates')
             return cur.fetchall()
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
 
     def _retrieve_one_with_cur_ids(
         self, base_currency_id: int, target_currency_id: int
@@ -147,8 +147,8 @@ class RateRepository:
             if query_result is None:
                 raise NoRateError()
             return query_result
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError
 
     def _update_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
@@ -168,5 +168,5 @@ class RateRepository:
             if query_result is None:
                 raise NoCurrencyPairError()
             return query_result[0]
-        except OperationalError as error:
-            raise CurrencyExchangeError(error)
+        except OperationalError:
+            raise NoDataBaseConnectionError

@@ -18,9 +18,9 @@ from currency_exchange.dtos import (
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
-    CurrencyExchangeError,
     NoCurrencyError,
     NoCurrencyPairError,
+    NoDataBaseConnectionError,
     NoRateError,
     RateAlreadyExistsError,
 )
@@ -137,19 +137,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
         try:
             self.send_ok(HTTPStatus.OK, service.get_all_currencies())
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_currency(self, cur_code: str) -> None:
         service = self.get_service()
         try:
             self.send_ok(HTTPStatus.OK, service.get_currency_with_code(cur_code))
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except NoCurrencyError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -157,19 +153,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
         try:
             self.send_ok(HTTPStatus.OK, service.get_all_rates())
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_rate(self, code_pair: str) -> None:
         service = self.get_service()
         try:
             self.send_ok(HTTPStatus.OK, service.get_rate(code_pair))
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except (NoCurrencyError, NoRateError):
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -183,10 +175,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
         except ValueError:
             self.send_error(HTTPStatus.BAD_REQUEST)
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except CurrencyAlreadyExistsError:
             self.send_error(HTTPStatus.CONFLICT)
 
@@ -204,10 +194,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
         except ValueError:
             self.send_error(HTTPStatus.BAD_REQUEST)
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except NoCurrencyError:
             self.send_error(HTTPStatus.NOT_FOUND)
         except RateAlreadyExistsError:
@@ -225,10 +213,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
         except ValueError:
             self.send_error(HTTPStatus.BAD_REQUEST)
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except NoCurrencyPairError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -244,10 +230,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                     ExchangePostDto(from_cur_code, to_cur_code, amount)
                 ),
             )
-        except CurrencyExchangeError as error:
-            self.send_error(
-                HTTPStatus.INTERNAL_SERVER_ERROR, message=f'Ошибка базы данных: {error}'
-            )
+        except NoDataBaseConnectionError:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except CantConvertError:
             self.send_error(HTTPStatus.NOT_FOUND)
 

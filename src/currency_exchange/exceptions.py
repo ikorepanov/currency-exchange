@@ -2,6 +2,10 @@ class CurrencyExchangeError(Exception):
     pass
 
 
+class NoDataBaseConnectionError(Exception):
+    pass
+
+
 class NoCurrencyError(Exception):
     pass
 
