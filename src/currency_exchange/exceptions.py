@@ -28,3 +28,7 @@ class NoCurrencyPairError(Exception):
 
 class CantConvertError(Exception):
     pass
+
+
+class InvalidDataError(Exception):
+    pass

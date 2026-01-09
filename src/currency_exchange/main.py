@@ -18,6 +18,7 @@ from currency_exchange.dtos import (
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
+    InvalidDataError,
     NoCurrencyError,
     NoCurrencyPairError,
     NoDataBaseConnectionError,
@@ -42,7 +43,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
             elif number_of_segments == 2:
                 cur_code = self.get_second_path_segment()
-                self.get_currency(cur_code) if self.is_valid_cur_code(
+                self.get_currency(cur_code) if RequestHandler.is_valid_cur_code(
                     cur_code
                 ) else self.send_error(
                     HTTPStatus.BAD_REQUEST,
@@ -76,8 +77,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 from_lst is not None
                 and to_lst is not None
                 and amount_lst is not None
-                and self.is_valid_cur_code(from_lst[0])
-                and self.is_valid_cur_code(to_lst[0])
+                and RequestHandler.is_valid_cur_code(from_lst[0])
+                and RequestHandler.is_valid_cur_code(to_lst[0])
                 and RequestHandler.is_valid_amount(amount_lst[0])
             ):
                 self.exchange_currencies(from_lst[0], to_lst[0], float(amount_lst[0]))
@@ -117,7 +118,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     float(rate_lst[0]),
                 )
             else:
-                self.send_error(HTTPStatus.BAD_REQUEST)
+                self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -203,14 +204,24 @@ class RequestHandler(BaseHTTPRequestHandler):
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 ),
             )
-        except ValueError:
-            self.send_error(HTTPStatus.BAD_REQUEST)
+        except ValueError as error:
+            self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except NoCurrencyError:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            self.send_error(
+                HTTPStatus.NOT_FOUND,
+                'Одна (или обе) валюта из валютной пары не существует в БД',
+            )
         except RateAlreadyExistsError:
-            self.send_error(HTTPStatus.CONFLICT)
+            self.send_error(
+                HTTPStatus.CONFLICT, 'Валютная пара с таким кодом уже существует'
+            )
+        except InvalidDataError:
+            self.send_error(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                'code must be 3 uppercase English letters',
+            )
 
     def update_rate(self, code_pair: str, rate: float) -> None:
         service = self.get_service()
@@ -262,7 +273,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             and len(code_pair) == 6
         )
 
-    def is_valid_cur_code(self, cur_code: str) -> bool:
+    @staticmethod
+    def is_valid_cur_code(cur_code: str) -> bool:
         return (
             cur_code.isalpha()
             and cur_code.isascii()
