@@ -148,14 +148,16 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_currencies(self) -> None:
         service = self.get_service()
         try:
-            self.send_ok(HTTPStatus.OK, service.get_all_currencies())
+            body = self.prepare_body(service.get_all_currencies())
+            self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_currency(self, cur_code: str) -> None:
         service = self.get_service()
         try:
-            self.send_ok(HTTPStatus.OK, service.get_currency_with_code(cur_code))
+            body = self.prepare_body(service.get_currency_with_code(cur_code))
+            self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except NoCurrencyError:
@@ -164,14 +166,16 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rates(self) -> None:
         service = self.get_service()
         try:
-            self.send_ok(HTTPStatus.OK, service.get_all_rates())
+            body = self.prepare_body(service.get_all_rates())
+            self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_rate(self, code_pair: str) -> None:
         service = self.get_service()
         try:
-            self.send_ok(HTTPStatus.OK, service.get_rate(code_pair))
+            body = self.prepare_body(service.get_rate(code_pair))
+            self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except (NoCurrencyError, NoRateError):
@@ -181,9 +185,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            self.send_ok(
+            body = self.prepare_body(
+                service.save_currency(CurrencyPostDto(name, code, sign))
+            )
+            self.send_json_response(
                 HTTPStatus.CREATED,
-                service.save_currency(CurrencyPostDto(name, code, sign)),
+                body,
             )
         except ValueError as error:
             self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
@@ -198,11 +205,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            self.send_ok(
-                HTTPStatus.CREATED,
+            body = self.prepare_body(
                 service.save_rate(
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
-                ),
+                )
+            )
+            self.send_json_response(
+                HTTPStatus.CREATED,
+                body,
             )
         except ValueError as error:
             self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
@@ -227,11 +237,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            self.send_ok(
-                HTTPStatus.OK,
+            body = self.prepare_body(
                 service.update_rate(
                     RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
-                ),
+                )
+            )
+            self.send_json_response(
+                HTTPStatus.OK,
+                body,
             )
         except ValueError:
             self.send_error(HTTPStatus.BAD_REQUEST)
@@ -244,16 +257,26 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            self.send_ok(
-                HTTPStatus.OK,
+            body = self.prepare_body(
                 service.exchange_currencies(
                     ExchangePostDto(from_cur_code, to_cur_code, amount)
-                ),
+                )
+            )
+            self.send_json_response(
+                HTTPStatus.OK,
+                body,
             )
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except CantConvertError:
             self.send_error(HTTPStatus.NOT_FOUND)
+
+    def send_json_response(self, status_code: int, body: bytes) -> None:
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def get_request_params(self) -> dict[str, Any]:
         data_string = self.rfile.read(int(self.headers['Content-Length']))
@@ -294,15 +317,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             return True
         except ValueError:
             return False
-
-    def send_ok(
-        self,
-        code: int,
-        data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
-    ) -> None:
-        body = self.prepare_body(data)
-        self.send_headers(code, body)
-        self.wfile.write(body)
 
     def prepare_body(
         self,
