@@ -324,24 +324,18 @@ class RequestHandler(BaseHTTPRequestHandler):
     ) -> bytes:
         if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
             return json.dumps(
-                self.change_keys_for_json(asdict(data)), ensure_ascii=False
+                self.convert_keys(asdict(data)), ensure_ascii=False
             ).encode('utf-8')
         else:
             return json.dumps(
-                [self.change_keys_for_json(asdict(obj)) for obj in data],
+                [self.convert_keys(asdict(obj)) for obj in data],
                 ensure_ascii=False,
             ).encode('utf-8')
 
-    def change_keys_for_json(
-        self, original_dictionary: dict[str, Any]
-    ) -> dict[str, Any]:
+    def convert_keys(self, original: dict[str, Any]) -> dict[str, Any]:
         return {
-            (
-                self.to_lower_camel_case(key)
-                if key in ('base_currency', 'target_currency')
-                else key
-            ): value
-            for key, value in original_dictionary.items()
+            (self.to_lower_camel_case(key) if '_' in key else key): value
+            for key, value in original.items()
         }
 
     def to_lower_camel_case(self, snake_str: str) -> str:
@@ -350,12 +344,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def to_camel_case(self, snake_str: str) -> str:
         return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))
-
-    def send_headers(self, code: int, body: bytes) -> None:
-        self.send_response(code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(body)))
-        self.end_headers()
 
     def get_first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]
