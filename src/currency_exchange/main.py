@@ -148,7 +148,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_currencies(self) -> None:
         service = self.get_service()
         try:
-            body = self.prepare_body(service.get_all_currencies())
+            body = RequestHandler.prepare_body(service.get_all_currencies())
             self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -156,7 +156,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_currency(self, cur_code: str) -> None:
         service = self.get_service()
         try:
-            body = self.prepare_body(service.get_currency_with_code(cur_code))
+            body = RequestHandler.prepare_body(service.get_currency_with_code(cur_code))
             self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -166,7 +166,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rates(self) -> None:
         service = self.get_service()
         try:
-            body = self.prepare_body(service.get_all_rates())
+            body = RequestHandler.prepare_body(service.get_all_rates())
             self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -174,7 +174,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rate(self, code_pair: str) -> None:
         service = self.get_service()
         try:
-            body = self.prepare_body(service.get_rate(code_pair))
+            body = RequestHandler.prepare_body(service.get_rate(code_pair))
             self.send_json_response(HTTPStatus.OK, body)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -185,7 +185,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            body = self.prepare_body(
+            body = RequestHandler.prepare_body(
                 service.save_currency(CurrencyPostDto(name, code, sign))
             )
             self.send_json_response(
@@ -205,7 +205,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            body = self.prepare_body(
+            body = RequestHandler.prepare_body(
                 service.save_rate(
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 )
@@ -237,7 +237,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            body = self.prepare_body(
+            body = RequestHandler.prepare_body(
                 service.update_rate(
                     RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
                 )
@@ -257,7 +257,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            body = self.prepare_body(
+            body = RequestHandler.prepare_body(
                 service.exchange_currencies(
                     ExchangePostDto(from_cur_code, to_cur_code, amount)
                 )
@@ -293,57 +293,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             and code_pair.isupper()
             and len(code_pair) == 6
         )
-
-    @staticmethod
-    def is_valid_cur_code(cur_code: str) -> bool:
-        return (
-            cur_code.isalpha()
-            and cur_code.isascii()
-            and cur_code.isupper()
-            and len(cur_code) == 3
-        )
-
-    @staticmethod
-    def is_valid_amount(str_amount: str) -> bool:
-        if RequestHandler.is_amount_could_be_float(str_amount):
-            return float(str_amount) > 0
-        else:
-            return False
-
-    @staticmethod
-    def is_amount_could_be_float(str_amount: str) -> bool:
-        try:
-            float(str_amount)
-            return True
-        except ValueError:
-            return False
-
-    def prepare_body(
-        self,
-        data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
-    ) -> bytes:
-        if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
-            return json.dumps(
-                self.convert_keys(asdict(data)), ensure_ascii=False
-            ).encode('utf-8')
-        else:
-            return json.dumps(
-                [self.convert_keys(asdict(obj)) for obj in data],
-                ensure_ascii=False,
-            ).encode('utf-8')
-
-    def convert_keys(self, original: dict[str, Any]) -> dict[str, Any]:
-        return {
-            (self.to_lower_camel_case(key) if '_' in key else key): value
-            for key, value in original.items()
-        }
-
-    def to_lower_camel_case(self, snake_str: str) -> str:
-        camel_string = self.to_camel_case(snake_str)
-        return snake_str[0].lower() + camel_string[1:]
-
-    def to_camel_case(self, snake_str: str) -> str:
-        return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))
 
     def get_first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]
@@ -389,6 +338,60 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if self.command != 'HEAD' and body:
             self.wfile.write(body)
+
+    @staticmethod
+    def is_valid_cur_code(cur_code: str) -> bool:
+        return (
+            cur_code.isalpha()
+            and cur_code.isascii()
+            and cur_code.isupper()
+            and len(cur_code) == 3
+        )
+
+    @staticmethod
+    def is_valid_amount(str_amount: str) -> bool:
+        if RequestHandler.is_amount_could_be_float(str_amount):
+            return float(str_amount) > 0
+        else:
+            return False
+
+    @staticmethod
+    def is_amount_could_be_float(str_amount: str) -> bool:
+        try:
+            float(str_amount)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def prepare_body(
+        data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
+    ) -> bytes:
+        if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
+            return json.dumps(
+                RequestHandler._convert_keys(asdict(data)), ensure_ascii=False
+            ).encode('utf-8')
+        else:
+            return json.dumps(
+                [RequestHandler._convert_keys(asdict(obj)) for obj in data],
+                ensure_ascii=False,
+            ).encode('utf-8')
+
+    @staticmethod
+    def _convert_keys(original: dict[str, Any]) -> dict[str, Any]:
+        return {
+            (RequestHandler._to_lower_camel_case(key) if '_' in key else key): value
+            for key, value in original.items()
+        }
+
+    @staticmethod
+    def _to_lower_camel_case(snake_str: str) -> str:
+        camel_string = RequestHandler._to_camel_case(snake_str)
+        return snake_str[0].lower() + camel_string[1:]
+
+    @staticmethod
+    def _to_camel_case(snake_str: str) -> str:
+        return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))
 
 
 class ExchangeServer(HTTPServer):
