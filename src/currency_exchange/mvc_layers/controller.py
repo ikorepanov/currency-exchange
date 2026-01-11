@@ -3,7 +3,7 @@ from functools import cached_property
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import ParseResult, parse_qsl, urlparse
 
 from currency_exchange.dtos import (
     CurrencyPostDto,
@@ -26,34 +26,33 @@ from currency_exchange.utils.string_helpers import serialize_response
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        first_segment = self.first_path_segment
-        number_of_segments = self.number_of_path_segments
-
-        if first_segment == 'currencies' and number_of_segments == 1:
+        if self.first_segment == 'currencies' and len(self.path_segments) == 1:
             self.get_currencies()
 
-        elif first_segment == 'currency':
-            if number_of_segments == 1:
+        elif self.first_segment == 'currency':
+            if len(self.path_segments) == 1:
                 self.send_error(
                     HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе'
                 )
-            elif number_of_segments == 2:
-                cur_code = self.second_path_segment
-                self.get_currency(cur_code)
+            elif len(self.path_segments) == 2:
+                self.get_currency(self.second_segment)
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
-        elif first_segment == 'exchangeRates' and number_of_segments == 1:
+        elif self.first_segment == 'exchangeRates' and len(self.path_segments) == 1:
             self.get_rates()
 
-        elif first_segment == 'exchangeRate':
-            if number_of_segments == 1:
+        elif self.first_segment == 'exchangeRate':
+            if len(self.path_segments) == 1:
                 self.send_error(
                     HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
                 )
-            elif number_of_segments == 2:
-                code_pair = self.second_path_segment
-                self.get_rate(code_pair)
+            elif len(self.path_segments) == 2:
+                self.get_rate(self.second_segment)
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
-        elif first_segment == 'exchange':
+        elif self.first_segment == 'exchange':
             params = self.query_params
             from_lst = params.get('from')
             to_lst = params.get('to')
@@ -61,16 +60,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             if from_lst is not None and to_lst is not None and amount_lst is not None:
                 self.exchange(from_lst[0], to_lst[0], float(amount_lst[0]))
             else:
-                self.send_error(HTTPStatus.BAD_REQUEST)
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST, 'Не переданы один или несколько параметров'
+                )
 
         else:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
     def do_POST(self) -> None:
-        first_segment = self.first_path_segment
-        number_of_segments = self.number_of_path_segments
-
-        if first_segment == 'currencies' and number_of_segments == 1:
+        if self.first_segment == 'currencies' and len(self.path_segments) == 1:
             params = self.request_params
             name_lst = params.get('name')
             code_lst = params.get('code')
@@ -80,7 +78,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
-        elif first_segment == 'exchangeRates' and number_of_segments == 1:
+        elif self.first_segment == 'exchangeRates' and len(self.path_segments) == 1:
             params = self.request_params
             base_currency_code_lst = params.get('baseCurrencyCode')
             target_currency_code_lst = params.get('targetCurrencyCode')
@@ -102,13 +100,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_PATCH(self) -> None:
-        number_of_segments = self.number_of_path_segments
-
-        if self.first_path_segment == 'exchangeRate':
-            if number_of_segments == 1:
+        if self.first_segment == 'exchangeRate':
+            if len(self.path_segments) == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
-            elif number_of_segments == 2:
-                code_pair = self.second_path_segment
+            elif len(self.path_segments) == 2:
+                code_pair = self.second_segment
 
                 params = self.request_params
                 rate_lst = params.get('rate')
@@ -282,23 +278,26 @@ class RequestHandler(BaseHTTPRequestHandler):
         return Service()
 
     @cached_property
+    def parsed_path(self) -> ParseResult:
+        return urlparse(self.path)
+
+    @cached_property
+    def path_segments(self) -> list[str]:
+        return self.parsed_path.path.strip('/').split('/')
+
+    @cached_property
+    def first_segment(self) -> str:
+        return self.path_segments[0]
+
+    @cached_property
+    def second_segment(self) -> str:
+        return self.path_segments[1]
+
+    @cached_property
     def request_params(self) -> dict[str, Any]:
-        data_string = self.rfile.read(int(self.headers['Content-Length']))
-        return parse_qs(data_string.decode())
+        data_string = self.rfile.read(int(self.headers.get('Content-Length', 0)))
+        return dict(parse_qsl(data_string.decode('utf-8')))
 
     @cached_property
     def query_params(self) -> dict[str, Any]:
-        parsed_path = urlparse(self.path)
-        return parse_qs(parsed_path.query)
-
-    @cached_property
-    def first_path_segment(self) -> str:
-        return self.path.strip('/').split('/')[0].split('?')[0]
-
-    @cached_property
-    def second_path_segment(self) -> str:
-        return self.path.strip('/').split('/')[1]
-
-    @cached_property
-    def number_of_path_segments(self) -> int:
-        return len(self.path.strip('/').split('/'))
+        return dict(parse_qsl(self.parsed_path.query))
