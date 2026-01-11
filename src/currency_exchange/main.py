@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from loguru import logger
 
-from currency_exchange.controller import RequestHandler
+from currency_exchange.mvc_layers.controller import RequestHandler
 
 
 def start_server(

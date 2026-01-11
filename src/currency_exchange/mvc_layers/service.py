@@ -8,7 +8,7 @@ from currency_exchange.dtos import (
 )
 from currency_exchange.exceptions import CantConvertError, InvalidDataError, NoRateError
 from currency_exchange.models import Currency, Rate
-from currency_exchange.repositories import CurrencyRepository, RateRepository
+from currency_exchange.mvc_layers.repositories import CurrencyRepository, RateRepository
 from currency_exchange.utils.validation import is_valid_cur_code
 
 

@@ -31,7 +31,7 @@ class CurrencyRepository:
 
     def _save_one(self, code: str, name: str, sign: str) -> int:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
                     'INSERT INTO Currencies (Code, FullName, Sign) VALUES (?, ?, ?)',
@@ -46,7 +46,7 @@ class CurrencyRepository:
 
     def _retrieve_all(self) -> list[tuple[int, str, str, str]]:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute('SELECT * FROM Currencies')
             return cur.fetchall()
@@ -55,7 +55,7 @@ class CurrencyRepository:
 
     def _retrieve_one_with_code(self, cur_code: str) -> tuple[int, str, str]:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
                     'SELECT ID, FullName, Sign FROM Currencies WHERE Code = ?',
@@ -70,7 +70,7 @@ class CurrencyRepository:
 
     def _retrieve_one_with_id(self, cur_id: int) -> tuple[str, str, str]:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
                     'SELECT Code, FullName, Sign FROM Currencies WHERE ID = ?',
@@ -109,7 +109,7 @@ class RateRepository:
 
     def _save_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
                     'INSERT INTO ExchangeRates '
@@ -125,7 +125,7 @@ class RateRepository:
 
     def _retrieve_all(self) -> list[tuple[int, int, int, float]]:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute('SELECT * FROM ExchangeRates')
             return cur.fetchall()
@@ -136,7 +136,7 @@ class RateRepository:
         self, base_currency_id: int, target_currency_id: int
     ) -> tuple[int, float]:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
                     'SELECT ID, Rate FROM ExchangeRates '
@@ -152,7 +152,7 @@ class RateRepository:
 
     def _update_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
-            with connect('./src/currency_exchange/db.sqlite') as conn:
+            with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
                 cur.execute(
                     'UPDATE ExchangeRates SET Rate = ? '

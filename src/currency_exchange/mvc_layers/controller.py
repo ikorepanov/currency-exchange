@@ -20,7 +20,7 @@ from currency_exchange.exceptions import (
     NoRateError,
     RateAlreadyExistsError,
 )
-from currency_exchange.service import Service
+from currency_exchange.mvc_layers.service import Service
 from currency_exchange.utils.string_helpers import serialize_response
 
 
