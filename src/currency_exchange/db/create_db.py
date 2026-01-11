@@ -36,10 +36,10 @@ def create_tables(cur: Cursor) -> None:
 
 def fill_tables(cur: Cursor) -> None:
     fill_csv_file(
-        './src/currency_exchange/data/Currencies.csv', cur, insert_into_currencies
+        './src/currency_exchange/db/data/Currencies.csv', cur, insert_into_currencies
     )
     fill_csv_file(
-        './src/currency_exchange/data/ExchangeRates.csv', cur, insert_into_rates
+        './src/currency_exchange/db/data/ExchangeRates.csv', cur, insert_into_rates
     )
 
 
@@ -73,4 +73,4 @@ def get_code_id(cur: Cursor, code: str) -> int:
 
 
 if __name__ == '__main__':
-    create_db_at('./src/currency_exchange/db.sqlite')
+    create_db_at('./src/currency_exchange/db/db.sqlite')
