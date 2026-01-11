@@ -1,5 +1,4 @@
 import json
-from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
@@ -8,11 +7,8 @@ from urllib.parse import parse_qs, urlparse
 from loguru import logger
 
 from currency_exchange.dtos import (
-    CurrencyDto,
     CurrencyPostDto,
-    ExchangeDto,
     ExchangePostDto,
-    RateDto,
     RatePostUpdateDto,
 )
 from currency_exchange.exceptions import (
@@ -26,6 +22,7 @@ from currency_exchange.exceptions import (
     RateAlreadyExistsError,
 )
 from currency_exchange.service import Service
+from currency_exchange.utils.string_helpers import serialize_response
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -43,12 +40,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
             elif number_of_segments == 2:
                 cur_code = self.get_second_path_segment()
-                self.get_currency(cur_code) if RequestHandler.is_valid_cur_code(
-                    cur_code
-                ) else self.send_error(
-                    HTTPStatus.BAD_REQUEST,
-                    'Код должен состоять из 3 заглавных букв английского алфавита',
-                )
+                self.get_currency(cur_code)
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
             self.get_rates()
@@ -60,27 +52,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
             elif number_of_segments == 2:
                 code_pair = self.get_second_path_segment()
-                self.get_rate(code_pair) if self.is_valid_pair(
-                    code_pair
-                ) else self.send_error(
-                    HTTPStatus.BAD_REQUEST,
-                    'Коды валют пары должны состоять из 3 заглавных букв английского '
-                    'алфавита каждый и должны быть указаны без пробела между ними',
-                )
+                self.get_rate(code_pair)
 
         elif first_segment == 'exchange':
             params = self.get_query_params()
             from_lst = params.get('from')
             to_lst = params.get('to')
             amount_lst = params.get('amount')
-            if (
-                from_lst is not None
-                and to_lst is not None
-                and amount_lst is not None
-                and RequestHandler.is_valid_cur_code(from_lst[0])
-                and RequestHandler.is_valid_cur_code(to_lst[0])
-                and RequestHandler.is_valid_amount(amount_lst[0])
-            ):
+            if from_lst is not None and to_lst is not None and amount_lst is not None:
                 self.exchange(from_lst[0], to_lst[0], float(amount_lst[0]))
             else:
                 self.send_error(HTTPStatus.BAD_REQUEST)
@@ -134,23 +113,16 @@ class RequestHandler(BaseHTTPRequestHandler):
 
                 params = self.get_request_params()
                 rate_lst = params.get('rate')
-
-                self.update_rate(code_pair, float(rate_lst[0])) if self.is_valid_pair(
-                    code_pair
-                ) and rate_lst is not None else self.send_error(HTTPStatus.BAD_REQUEST)
+                if rate_lst is not None:
+                    self.update_rate(code_pair, float(rate_lst[0]))
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    def get_service(self) -> Service:
-        return Service()
-
     def get_currencies(self) -> None:
         service = self.get_service()
         try:
-            api_response = RequestHandler._serialize_response(
-                service.get_all_currencies()
-            )
+            api_response = serialize_response(service.get_all_currencies())
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -158,9 +130,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_currency(self, cur_code: str) -> None:
         service = self.get_service()
         try:
-            api_response = RequestHandler._serialize_response(
-                service.get_currency_with_code(cur_code)
-            )
+            api_response = serialize_response(service.get_currency_with_code(cur_code))
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -170,7 +140,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rates(self) -> None:
         service = self.get_service()
         try:
-            api_response = RequestHandler._serialize_response(service.get_all_rates())
+            api_response = serialize_response(service.get_all_rates())
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -178,9 +148,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def get_rate(self, code_pair: str) -> None:
         service = self.get_service()
         try:
-            api_response = RequestHandler._serialize_response(
-                service.get_rate(code_pair)
-            )
+            api_response = serialize_response(service.get_rate(code_pair))
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -191,7 +159,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            api_response = RequestHandler._serialize_response(
+            api_response = serialize_response(
                 service.save_currency(CurrencyPostDto(name, code, sign))
             )
             self.send_json_response(
@@ -211,7 +179,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            api_response = RequestHandler._serialize_response(
+            api_response = serialize_response(
                 service.save_rate(
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 )
@@ -243,7 +211,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            api_response = RequestHandler._serialize_response(
+            api_response = serialize_response(
                 service.update_rate(
                     RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
                 )
@@ -263,7 +231,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         service = self.get_service()
 
         try:
-            api_response = RequestHandler._serialize_response(
+            api_response = serialize_response(
                 service.exchange_currencies(
                     ExchangePostDto(from_cur_code, to_cur_code, amount)
                 )
@@ -283,31 +251,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(api_response)))
         self.end_headers()
         self.wfile.write(api_response.encode('utf-8'))
-
-    def get_request_params(self) -> dict[str, Any]:
-        data_string = self.rfile.read(int(self.headers['Content-Length']))
-        return parse_qs(data_string.decode())
-
-    def get_query_params(self) -> dict[str, Any]:
-        parsed_path = urlparse(self.path)
-        return parse_qs(parsed_path.query)
-
-    def is_valid_pair(self, code_pair: str) -> bool:
-        return (
-            code_pair.isalpha()
-            and code_pair.isascii()
-            and code_pair.isupper()
-            and len(code_pair) == 6
-        )
-
-    def get_first_path_segment(self) -> str:
-        return self.path.strip('/').split('/')[0].split('?')[0]
-
-    def get_second_path_segment(self) -> str:
-        return self.path.strip('/').split('/')[1]
-
-    def get_number_of_path_segments(self) -> int:
-        return len(self.path.strip('/').split('/'))
 
     def send_error(
         self, code: int, message: str | None = None, explain: str | None = None
@@ -345,82 +288,31 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.command != 'HEAD' and body:
             self.wfile.write(body)
 
-    @staticmethod
-    def is_valid_cur_code(cur_code: str) -> bool:
-        return (
-            cur_code.isalpha()
-            and cur_code.isascii()
-            and cur_code.isupper()
-            and len(cur_code) == 3
-        )
+    def get_service(self) -> Service:
+        return Service()
 
-    @staticmethod
-    def is_valid_amount(str_amount: str) -> bool:
-        if RequestHandler.is_amount_could_be_float(str_amount):
-            return float(str_amount) > 0
-        else:
-            return False
+    def get_request_params(self) -> dict[str, Any]:
+        data_string = self.rfile.read(int(self.headers['Content-Length']))
+        return parse_qs(data_string.decode())
 
-    @staticmethod
-    def is_amount_could_be_float(str_amount: str) -> bool:
-        try:
-            float(str_amount)
-            return True
-        except ValueError:
-            return False
+    def get_query_params(self) -> dict[str, Any]:
+        parsed_path = urlparse(self.path)
+        return parse_qs(parsed_path.query)
 
-    @staticmethod
-    def _serialize_response(
-        data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
-    ) -> str:
-        if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
-            return RequestHandler._to_json(RequestHandler._to_dict(data))
-        else:
-            return RequestHandler._to_json(
-                [RequestHandler._to_dict(obj) for obj in data]
-            )
+    def get_first_path_segment(self) -> str:
+        return self.path.strip('/').split('/')[0].split('?')[0]
 
-    @staticmethod
-    def _to_json(obj: dict[str, Any] | list[dict[str, Any]]) -> str:
-        return json.dumps(obj, ensure_ascii=False)
+    def get_second_path_segment(self) -> str:
+        return self.path.strip('/').split('/')[1]
 
-    @staticmethod
-    def _to_dict(obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
-        return RequestHandler._convert_keys(asdict(obj))
-
-    @staticmethod
-    def _convert_keys(original: dict[str, Any]) -> dict[str, Any]:
-        return {
-            (RequestHandler._to_lower_camel_case(key) if '_' in key else key): value
-            for key, value in original.items()
-        }
-
-    @staticmethod
-    def _to_lower_camel_case(snake_str: str) -> str:
-        camel_string = RequestHandler._to_camel_case(snake_str)
-        return snake_str[0].lower() + camel_string[1:]
-
-    @staticmethod
-    def _to_camel_case(snake_str: str) -> str:
-        return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))
-
-
-class ExchangeServer(HTTPServer):
-    """Переопределяем HTTPServer, т.к. впоследствии добавим self.db = db."""
-
-    def __init__(
-        self,
-        server_address: tuple[str, int],
-        RequestHandlerClass: type[RequestHandler],
-        bind_and_activate: bool = True,
-    ) -> None:
-        super().__init__(server_address, RequestHandlerClass, bind_and_activate)
+    def get_number_of_path_segments(self) -> int:
+        return len(self.path.strip('/').split('/'))
 
 
 def start_server(
     addr: str,
     port: int,
-    server_class: type[HTTPServer] = ExchangeServer,
+    server_class: type[HTTPServer] = HTTPServer,
     handler_class: type[BaseHTTPRequestHandler] = RequestHandler,
 ) -> None:
     server_address = (addr, port)

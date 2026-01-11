@@ -1,0 +1,42 @@
+import json
+from dataclasses import asdict
+from typing import Any
+
+from currency_exchange.dtos import (
+    CurrencyDto,
+    ExchangeDto,
+    RateDto,
+)
+
+
+def serialize_response(
+    data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
+) -> str:
+    if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
+        return _to_json(_to_dict(data))
+    else:
+        return _to_json([_to_dict(obj) for obj in data])
+
+
+def _to_json(obj: dict[str, Any] | list[dict[str, Any]]) -> str:
+    return json.dumps(obj, ensure_ascii=False)
+
+
+def _to_dict(obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
+    return _convert_keys(asdict(obj))
+
+
+def _convert_keys(original: dict[str, Any]) -> dict[str, Any]:
+    return {
+        (_to_lower_camel_case(key) if '_' in key else key): value
+        for key, value in original.items()
+    }
+
+
+def _to_lower_camel_case(snake_str: str) -> str:
+    camel_string = _to_camel_case(snake_str)
+    return snake_str[0].lower() + camel_string[1:]
+
+
+def _to_camel_case(snake_str: str) -> str:
+    return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))

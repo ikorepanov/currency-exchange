@@ -9,6 +9,7 @@ from currency_exchange.dtos import (
 from currency_exchange.exceptions import CantConvertError, InvalidDataError, NoRateError
 from currency_exchange.models import Currency, Rate
 from currency_exchange.repositories import CurrencyRepository, RateRepository
+from currency_exchange.utils.validation import is_valid_cur_code
 
 
 class Service:
@@ -63,7 +64,7 @@ class Service:
         base_currency_code = rate_post_dto.base_currency_code
         target_currency_code = rate_post_dto.target_currency_code
 
-        if Service.is_valid_cur_code(base_currency_code) and Service.is_valid_cur_code(
+        if is_valid_cur_code(base_currency_code) and is_valid_cur_code(
             target_currency_code
         ):
             base_currency_dto = self.get_currency_with_code(
@@ -80,15 +81,6 @@ class Service:
         )
         return self._rate_to_dto(
             self.rate_repository.save_rate(rate), base_currency_dto, target_currency_dto
-        )
-
-    @staticmethod
-    def is_valid_cur_code(cur_code: str) -> bool:
-        return (
-            cur_code.isalpha()
-            and cur_code.isascii()
-            and cur_code.isupper()
-            and len(cur_code) == 3
         )
 
     def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
