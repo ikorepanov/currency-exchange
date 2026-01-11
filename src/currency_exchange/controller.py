@@ -1,4 +1,5 @@
 import json
+from functools import cached_property
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
@@ -25,8 +26,8 @@ from currency_exchange.utils.string_helpers import serialize_response
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        first_segment = self.get_first_path_segment()
-        number_of_segments = self.get_number_of_path_segments()
+        first_segment = self.first_path_segment
+        number_of_segments = self.number_of_path_segments
 
         if first_segment == 'currencies' and number_of_segments == 1:
             self.get_currencies()
@@ -37,7 +38,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе'
                 )
             elif number_of_segments == 2:
-                cur_code = self.get_second_path_segment()
+                cur_code = self.second_path_segment
                 self.get_currency(cur_code)
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
@@ -49,11 +50,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
                 )
             elif number_of_segments == 2:
-                code_pair = self.get_second_path_segment()
+                code_pair = self.second_path_segment
                 self.get_rate(code_pair)
 
         elif first_segment == 'exchange':
-            params = self.get_query_params()
+            params = self.query_params
             from_lst = params.get('from')
             to_lst = params.get('to')
             amount_lst = params.get('amount')
@@ -66,11 +67,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
-        first_segment = self.get_first_path_segment()
-        number_of_segments = self.get_number_of_path_segments()
+        first_segment = self.first_path_segment
+        number_of_segments = self.number_of_path_segments
 
         if first_segment == 'currencies' and number_of_segments == 1:
-            params = self.get_request_params()
+            params = self.request_params
             name_lst = params.get('name')
             code_lst = params.get('code')
             sign_lst = params.get('sign')
@@ -80,7 +81,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
         elif first_segment == 'exchangeRates' and number_of_segments == 1:
-            params = self.get_request_params()
+            params = self.request_params
             base_currency_code_lst = params.get('baseCurrencyCode')
             target_currency_code_lst = params.get('targetCurrencyCode')
             rate_lst = params.get('rate')
@@ -101,15 +102,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_PATCH(self) -> None:
-        number_of_segments = self.get_number_of_path_segments()
+        number_of_segments = self.number_of_path_segments
 
-        if self.get_first_path_segment() == 'exchangeRate':
+        if self.first_path_segment == 'exchangeRate':
             if number_of_segments == 1:
                 self.send_error(HTTPStatus.BAD_REQUEST)
             elif number_of_segments == 2:
-                code_pair = self.get_second_path_segment()
+                code_pair = self.second_path_segment
 
-                params = self.get_request_params()
+                params = self.request_params
                 rate_lst = params.get('rate')
                 if rate_lst is not None:
                     self.update_rate(code_pair, float(rate_lst[0]))
@@ -118,17 +119,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def get_currencies(self) -> None:
-        service = self.get_service()
         try:
-            api_response = serialize_response(service.get_all_currencies())
+            api_response = serialize_response(self.service.get_all_currencies())
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_currency(self, cur_code: str) -> None:
-        service = self.get_service()
         try:
-            api_response = serialize_response(service.get_currency_with_code(cur_code))
+            api_response = serialize_response(
+                self.service.get_currency_with_code(cur_code)
+            )
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -136,17 +137,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, 'Валюта не найдена')
 
     def get_rates(self) -> None:
-        service = self.get_service()
         try:
-            api_response = serialize_response(service.get_all_rates())
+            api_response = serialize_response(self.service.get_all_rates())
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_rate(self, code_pair: str) -> None:
-        service = self.get_service()
         try:
-            api_response = serialize_response(service.get_rate(code_pair))
+            api_response = serialize_response(self.service.get_rate(code_pair))
             self.send_json_response(HTTPStatus.OK, api_response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
@@ -154,11 +153,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, 'Обменный курс для пары не найден')
 
     def create_currency(self, name: str, code: str, sign: str) -> None:
-        service = self.get_service()
-
         try:
             api_response = serialize_response(
-                service.save_currency(CurrencyPostDto(name, code, sign))
+                self.service.save_currency(CurrencyPostDto(name, code, sign))
             )
             self.send_json_response(
                 HTTPStatus.CREATED,
@@ -174,11 +171,9 @@ class RequestHandler(BaseHTTPRequestHandler):
     def create_rate(
         self, base_currency_code: str, target_currency_code: str, rate: float
     ) -> None:
-        service = self.get_service()
-
         try:
             api_response = serialize_response(
-                service.save_rate(
+                self.service.save_rate(
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 )
             )
@@ -206,11 +201,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
 
     def update_rate(self, code_pair: str, rate: float) -> None:
-        service = self.get_service()
-
         try:
             api_response = serialize_response(
-                service.update_rate(
+                self.service.update_rate(
                     RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
                 )
             )
@@ -226,11 +219,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def exchange(self, from_cur_code: str, to_cur_code: str, amount: float) -> None:
-        service = self.get_service()
-
         try:
             api_response = serialize_response(
-                service.exchange_currencies(
+                self.service.exchange_currencies(
                     ExchangePostDto(from_cur_code, to_cur_code, amount)
                 )
             )
@@ -286,22 +277,28 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.command != 'HEAD' and body:
             self.wfile.write(body)
 
-    def get_service(self) -> Service:
+    @cached_property
+    def service(self) -> Service:
         return Service()
 
-    def get_request_params(self) -> dict[str, Any]:
+    @cached_property
+    def request_params(self) -> dict[str, Any]:
         data_string = self.rfile.read(int(self.headers['Content-Length']))
         return parse_qs(data_string.decode())
 
-    def get_query_params(self) -> dict[str, Any]:
+    @cached_property
+    def query_params(self) -> dict[str, Any]:
         parsed_path = urlparse(self.path)
         return parse_qs(parsed_path.query)
 
-    def get_first_path_segment(self) -> str:
+    @cached_property
+    def first_path_segment(self) -> str:
         return self.path.strip('/').split('/')[0].split('?')[0]
 
-    def get_second_path_segment(self) -> str:
+    @cached_property
+    def second_path_segment(self) -> str:
         return self.path.strip('/').split('/')[1]
 
-    def get_number_of_path_segments(self) -> int:
+    @cached_property
+    def number_of_path_segments(self) -> int:
         return len(self.path.strip('/').split('/'))
