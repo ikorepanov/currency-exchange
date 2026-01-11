@@ -81,7 +81,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 and RequestHandler.is_valid_cur_code(to_lst[0])
                 and RequestHandler.is_valid_amount(amount_lst[0])
             ):
-                self.exchange_currencies(from_lst[0], to_lst[0], float(amount_lst[0]))
+                self.exchange(from_lst[0], to_lst[0], float(amount_lst[0]))
             else:
                 self.send_error(HTTPStatus.BAD_REQUEST)
 
@@ -98,7 +98,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             code_lst = params.get('code')
             sign_lst = params.get('sign')
             if name_lst is not None and code_lst is not None and sign_lst is not None:
-                self.save_currency(name_lst[0], code_lst[0], sign_lst[0])
+                self.create_currency(name_lst[0], code_lst[0], sign_lst[0])
             else:
                 self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
@@ -112,7 +112,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 and target_currency_code_lst is not None
                 and rate_lst is not None
             ):
-                self.save_rate(
+                self.create_rate(
                     base_currency_code_lst[0],
                     target_currency_code_lst[0],
                     float(rate_lst[0]),
@@ -177,7 +177,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         except (NoCurrencyError, NoRateError):
             self.send_error(HTTPStatus.NOT_FOUND, 'Обменный курс для пары не найден')
 
-    def save_currency(self, name: str, code: str, sign: str) -> None:
+    def create_currency(self, name: str, code: str, sign: str) -> None:
         service = self.get_service()
 
         try:
@@ -192,7 +192,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         except CurrencyAlreadyExistsError:
             self.send_error(HTTPStatus.CONFLICT, 'Валюта с таким кодом уже существует')
 
-    def save_rate(
+    def create_rate(
         self, base_currency_code: str, target_currency_code: str, rate: float
     ) -> None:
         service = self.get_service()
@@ -240,9 +240,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         except NoCurrencyPairError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    def exchange_currencies(
-        self, from_cur_code: str, to_cur_code: str, amount: float
-    ) -> None:
+    def exchange(self, from_cur_code: str, to_cur_code: str, amount: float) -> None:
         service = self.get_service()
 
         try:
