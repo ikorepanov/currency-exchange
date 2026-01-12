@@ -16,9 +16,9 @@ class CurrencyRepository:
         query_result = self._retrieve_all()
         return [Currency(row[0], row[1], row[2], row[3]) for row in query_result]
 
-    def get_currency_with_code(self, cur_code: str) -> Currency:
-        raw_data = self._retrieve_one_with_code(cur_code)
-        return Currency(raw_data[0], cur_code, raw_data[1], raw_data[2])
+    def get_currency(self, cur_code: str) -> Currency:
+        query_result = self._retrieve_one(cur_code)
+        return Currency(query_result[0], cur_code, query_result[1], query_result[2])
 
     def get_currency_with_id(self, cur_id: int) -> Currency:
         raw_data = self._retrieve_one_with_id(cur_id)
@@ -50,9 +50,9 @@ class CurrencyRepository:
                 cur.execute('SELECT * FROM Currencies')
             return cur.fetchall()
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
 
-    def _retrieve_one_with_code(self, cur_code: str) -> tuple[int, str, str]:
+    def _retrieve_one(self, cur_code: str) -> tuple[int, str, str]:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -62,10 +62,10 @@ class CurrencyRepository:
                 )
                 query_result = cur.fetchone()
             if query_result is None:
-                raise NoCurrencyError()
+                raise NoCurrencyError('Валюта не найдена')
             return query_result
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
 
     def _retrieve_one_with_id(self, cur_id: int) -> tuple[str, str, str]:
         try:

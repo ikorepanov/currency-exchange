@@ -32,3 +32,7 @@ class CantConvertError(Exception):
 
 class InvalidDataError(Exception):
     pass
+
+
+class InvalidRequestError(Exception):
+    pass

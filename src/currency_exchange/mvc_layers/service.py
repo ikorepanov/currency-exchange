@@ -8,10 +8,15 @@ from currency_exchange.dtos import (
     RateDto,
     RatePostUpdateDto,
 )
-from currency_exchange.exceptions import CantConvertError, InvalidDataError, NoRateError
+from currency_exchange.exceptions import (
+    CantConvertError,
+    InvalidDataError,
+    InvalidRequestError,
+    NoRateError,
+)
 from currency_exchange.models import Currency, Rate
 from currency_exchange.mvc_layers.repositories import CurrencyRepository, RateRepository
-from currency_exchange.utils.validation import is_valid_cur_code
+from currency_exchange.utils.validation import is_valid, is_valid_cur_code
 
 
 class Service:
@@ -19,9 +24,12 @@ class Service:
         currencies = self.currency_repository.get_currencies()
         return [self._currency_to_dto(currency) for currency in currencies]
 
-    def get_currency_with_code(self, cur_code: str) -> CurrencyDto:
-        return self._currency_to_dto(
-            self.currency_repository.get_currency_with_code(cur_code)
+    def get_currency(self, cur_code: str) -> CurrencyDto:
+        if is_valid(cur_code):
+            currency = self.currency_repository.get_currency(cur_code)
+            return self._currency_to_dto(currency)
+        raise InvalidRequestError(
+            'Код валюты должен состоять из 3 заглавных английских букв'
         )
 
     def get_currency_with_id(self, cur_id: int) -> CurrencyDto:
@@ -40,8 +48,8 @@ class Service:
         ]
 
     def get_rate(self, code_pair: str) -> RateDto:
-        base_currency_dto = self.get_currency_with_code(code_pair[:3])
-        target_currency_dto = self.get_currency_with_code(code_pair[3:])
+        base_currency_dto = self.get_currency(code_pair[:3])
+        target_currency_dto = self.get_currency(code_pair[3:])
         return self._rate_to_dto(
             self.rate_repository.get_rate_with_cur_ids(
                 base_currency_dto.id, target_currency_dto.id
@@ -64,12 +72,8 @@ class Service:
         if is_valid_cur_code(base_currency_code) and is_valid_cur_code(
             target_currency_code
         ):
-            base_currency_dto = self.get_currency_with_code(
-                rate_post_dto.base_currency_code
-            )
-            target_currency_dto = self.get_currency_with_code(
-                rate_post_dto.target_currency_code
-            )
+            base_currency_dto = self.get_currency(rate_post_dto.base_currency_code)
+            target_currency_dto = self.get_currency(rate_post_dto.target_currency_code)
         else:
             raise InvalidDataError
 
@@ -81,12 +85,8 @@ class Service:
         )
 
     def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
-        base_currency_dto = self.get_currency_with_code(
-            rate_update_dto.base_currency_code
-        )
-        target_currency_dto = self.get_currency_with_code(
-            rate_update_dto.target_currency_code
-        )
+        base_currency_dto = self.get_currency(rate_update_dto.base_currency_code)
+        target_currency_dto = self.get_currency(rate_update_dto.target_currency_code)
         rate = Rate(
             None,
             base_currency_dto.id,
@@ -113,8 +113,8 @@ class Service:
                 rate = reversed_rate.rate
             except NoRateError:
                 try:
-                    base_cur_dto = self.get_currency_with_code(from_currency_code)
-                    target_cur_dto = self.get_currency_with_code(to_currency_code)
+                    base_cur_dto = self.get_currency(from_currency_code)
+                    target_cur_dto = self.get_currency(to_currency_code)
 
                     interm_rate_1 = self.get_rate('USD' + from_currency_code)
                     interm_rate_2 = self.get_rate('USD' + to_currency_code)

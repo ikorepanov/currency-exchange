@@ -3,7 +3,7 @@ from functools import cached_property
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
-from urllib.parse import ParseResult, parse_qsl, urlparse
+from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
 from currency_exchange.dtos import (
     CurrencyPostDto,
@@ -14,6 +14,7 @@ from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
     InvalidDataError,
+    InvalidRequestError,
     NoCurrencyError,
     NoCurrencyPairError,
     NoDataBaseConnectionError,
@@ -106,29 +107,33 @@ class RequestHandler(BaseHTTPRequestHandler):
                 data = self.service.get_currencies()
                 response = serialize(data)
                 self.send_json_response(HTTPStatus.OK, response)
-            except NoDataBaseConnectionError:
-                self.send_error(
-                    HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна'
-                )
+            except NoDataBaseConnectionError as error:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
         else:
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
     def get_currency(self) -> None:
-        if len(self.path_segments) > 2:
-            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
         if self.second_segment is None:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе')
-        else:
-            try:
-                data = self.service.get_currency_with_code(self.second_segment)
-                response = serialize(data)
-                self.send_json_response(HTTPStatus.OK, response)
-            except NoDataBaseConnectionError:
+        elif len(self.path_segments) == 2:
+            if self.second_segment.isalpha():
+                try:
+                    data = self.service.get_currency(self.second_segment)
+                    response = serialize(data)
+                    self.send_json_response(HTTPStatus.OK, response)
+                except NoDataBaseConnectionError as error:
+                    self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                except NoCurrencyError as error:
+                    self.send_error(HTTPStatus.NOT_FOUND, str(error))
+                except InvalidRequestError as error:
+                    self.send_error(HTTPStatus.BAD_REQUEST, str(error))
+            else:
+                print(self.second_segment)
                 self.send_error(
-                    HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна'
+                    HTTPStatus.BAD_REQUEST, 'Код валюты должен состоять из букв'
                 )
-            except NoCurrencyError:
-                self.send_error(HTTPStatus.NOT_FOUND, 'Валюта не найдена')
+        else:
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
     def get_rates(self) -> None:
         if len(self.path_segments) > 1:
@@ -306,7 +311,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     @cached_property
     def second_segment(self) -> str | None:
         try:
-            return self.path_segments[1]
+            encoded = self.path_segments[1]
+            return unquote(encoded, encoding='utf-8')
         except IndexError:
             return None
 
