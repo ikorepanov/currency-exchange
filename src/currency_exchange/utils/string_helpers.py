@@ -9,7 +9,7 @@ from currency_exchange.dtos import (
 )
 
 
-def serialize_response(
+def serialize(
     data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
 ) -> str:
     if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):

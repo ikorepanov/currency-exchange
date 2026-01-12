@@ -21,36 +21,22 @@ from currency_exchange.exceptions import (
     RateAlreadyExistsError,
 )
 from currency_exchange.mvc_layers.service import Service
-from currency_exchange.utils.string_helpers import serialize_response
+from currency_exchange.utils.string_helpers import serialize
 
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        if self.first_segment == 'currencies' and len(self.path_segments) == 1:
+        if self.first_segment == 'currencies':
             self.get_currencies()
 
         elif self.first_segment == 'currency':
-            if len(self.path_segments) == 1:
-                self.send_error(
-                    HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе'
-                )
-            elif len(self.path_segments) == 2:
-                self.get_currency(self.second_segment)
-            else:
-                self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
+            self.get_currency()
 
-        elif self.first_segment == 'exchangeRates' and len(self.path_segments) == 1:
+        elif self.first_segment == 'exchangeRates':
             self.get_rates()
 
         elif self.first_segment == 'exchangeRate':
-            if len(self.path_segments) == 1:
-                self.send_error(
-                    HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
-                )
-            elif len(self.path_segments) == 2:
-                self.get_rate(self.second_segment)
-            else:
-                self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
+            self.get_rate()
 
         elif self.first_segment == 'exchange':
             params = self.query_params
@@ -108,54 +94,78 @@ class RequestHandler(BaseHTTPRequestHandler):
 
                 params = self.request_params
                 rate_lst = params.get('rate')
-                if rate_lst is not None:
+                if rate_lst is not None and code_pair is not None:
                     self.update_rate(code_pair, float(rate_lst[0]))
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def get_currencies(self) -> None:
+        if len(self.path_segments) > 1:
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
         try:
-            api_response = serialize_response(self.service.get_all_currencies())
-            self.send_json_response(HTTPStatus.OK, api_response)
+            data = self.service.get_all_currencies()
+            response = serialize(data)
+            self.send_json_response(HTTPStatus.OK, response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
-    def get_currency(self, cur_code: str) -> None:
-        try:
-            api_response = serialize_response(
-                self.service.get_currency_with_code(cur_code)
-            )
-            self.send_json_response(HTTPStatus.OK, api_response)
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
-        except NoCurrencyError:
-            self.send_error(HTTPStatus.NOT_FOUND, 'Валюта не найдена')
+    def get_currency(self) -> None:
+        if len(self.path_segments) > 2:
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
+        if self.second_segment is None:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе')
+        else:
+            try:
+                data = self.service.get_currency_with_code(self.second_segment)
+                response = serialize(data)
+                self.send_json_response(HTTPStatus.OK, response)
+            except NoDataBaseConnectionError:
+                self.send_error(
+                    HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна'
+                )
+            except NoCurrencyError:
+                self.send_error(HTTPStatus.NOT_FOUND, 'Валюта не найдена')
 
     def get_rates(self) -> None:
+        if len(self.path_segments) > 1:
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
         try:
-            api_response = serialize_response(self.service.get_all_rates())
-            self.send_json_response(HTTPStatus.OK, api_response)
+            data = self.service.get_all_rates()
+            response = serialize(data)
+            self.send_json_response(HTTPStatus.OK, response)
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
-    def get_rate(self, code_pair: str) -> None:
-        try:
-            api_response = serialize_response(self.service.get_rate(code_pair))
-            self.send_json_response(HTTPStatus.OK, api_response)
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
-        except (NoCurrencyError, NoRateError):
-            self.send_error(HTTPStatus.NOT_FOUND, 'Обменный курс для пары не найден')
+    def get_rate(self) -> None:
+        if len(self.path_segments) > 2:
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
+        if self.second_segment is None:
+            self.send_error(
+                HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
+            )
+        else:
+            try:
+                data = self.service.get_rate(self.second_segment)
+                response = serialize(data)
+                self.send_json_response(HTTPStatus.OK, response)
+            except NoDataBaseConnectionError:
+                self.send_error(
+                    HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна'
+                )
+            except (NoCurrencyError, NoRateError):
+                self.send_error(
+                    HTTPStatus.NOT_FOUND, 'Обменный курс для пары не найден'
+                )
 
     def create_currency(self, name: str, code: str, sign: str) -> None:
         try:
-            api_response = serialize_response(
+            response = serialize(
                 self.service.save_currency(CurrencyPostDto(name, code, sign))
             )
             self.send_json_response(
                 HTTPStatus.CREATED,
-                api_response,
+                response,
             )
         except ValueError as error:
             self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
@@ -168,14 +178,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         self, base_currency_code: str, target_currency_code: str, rate: float
     ) -> None:
         try:
-            api_response = serialize_response(
+            response = serialize(
                 self.service.save_rate(
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 )
             )
             self.send_json_response(
                 HTTPStatus.CREATED,
-                api_response,
+                response,
             )
         except ValueError as error:
             self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
@@ -198,14 +208,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def update_rate(self, code_pair: str, rate: float) -> None:
         try:
-            api_response = serialize_response(
+            response = serialize(
                 self.service.update_rate(
                     RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
                 )
             )
             self.send_json_response(
                 HTTPStatus.OK,
-                api_response,
+                response,
             )
         except ValueError:
             self.send_error(HTTPStatus.BAD_REQUEST)
@@ -216,26 +226,27 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def exchange(self, from_cur_code: str, to_cur_code: str, amount: float) -> None:
         try:
-            api_response = serialize_response(
+            response = serialize(
                 self.service.exchange_currencies(
                     ExchangePostDto(from_cur_code, to_cur_code, amount)
                 )
             )
             self.send_json_response(
                 HTTPStatus.OK,
-                api_response,
+                response,
             )
         except NoDataBaseConnectionError:
             self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
         except CantConvertError:
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    def send_json_response(self, status_code: int, api_response: str) -> None:
+    def send_json_response(self, status_code: int, response: str) -> None:
+        body = response.encode('utf-8')
         self.send_response(status_code)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(api_response)))
+        self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-        self.wfile.write(api_response.encode('utf-8'))
+        self.wfile.write(body)
 
     def send_error(
         self, code: int, message: str | None = None, explain: str | None = None
@@ -290,8 +301,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         return self.path_segments[0]
 
     @cached_property
-    def second_segment(self) -> str:
-        return self.path_segments[1]
+    def second_segment(self) -> str | None:
+        try:
+            return self.path_segments[1]
+        except IndexError:
+            return None
 
     @cached_property
     def request_params(self) -> dict[str, Any]:
