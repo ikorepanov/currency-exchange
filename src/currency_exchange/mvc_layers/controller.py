@@ -101,14 +101,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
 
     def get_currencies(self) -> None:
-        if len(self.path_segments) > 1:
+        if len(self.path_segments) == 1:
+            try:
+                data = self.service.get_currencies()
+                response = serialize(data)
+                self.send_json_response(HTTPStatus.OK, response)
+            except NoDataBaseConnectionError:
+                self.send_error(
+                    HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна'
+                )
+        else:
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
-        try:
-            data = self.service.get_all_currencies()
-            response = serialize(data)
-            self.send_json_response(HTTPStatus.OK, response)
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
 
     def get_currency(self) -> None:
         if len(self.path_segments) > 2:

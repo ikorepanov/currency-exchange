@@ -12,10 +12,9 @@ from currency_exchange.models import Currency, Rate
 
 
 class CurrencyRepository:
-    def get_all_currencies(self) -> list[Currency]:
-        return [
-            Currency(row[0], row[1], row[2], row[3]) for row in self._retrieve_all()
-        ]
+    def get_currencies(self) -> list[Currency]:
+        query_result = self._retrieve_all()
+        return [Currency(row[0], row[1], row[2], row[3]) for row in query_result]
 
     def get_currency_with_code(self, cur_code: str) -> Currency:
         raw_data = self._retrieve_one_with_code(cur_code)

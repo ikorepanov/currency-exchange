@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from currency_exchange.dtos import (
     CurrencyDto,
     CurrencyPostDto,
@@ -13,14 +15,9 @@ from currency_exchange.utils.validation import is_valid_cur_code
 
 
 class Service:
-    currency_repository = CurrencyRepository()
-    rate_repository = RateRepository()
-
-    def get_all_currencies(self) -> list[CurrencyDto]:
-        return [
-            self._currency_to_dto(currency)
-            for currency in self.currency_repository.get_all_currencies()
-        ]
+    def get_currencies(self) -> list[CurrencyDto]:
+        currencies = self.currency_repository.get_currencies()
+        return [self._currency_to_dto(currency) for currency in currencies]
 
     def get_currency_with_code(self, cur_code: str) -> CurrencyDto:
         return self._currency_to_dto(
@@ -145,6 +142,14 @@ class Service:
             amount,
             rate * amount,
         )
+
+    @cached_property
+    def currency_repository(self) -> CurrencyRepository:
+        return CurrencyRepository()
+
+    @cached_property
+    def rate_repository(self) -> RateRepository:
+        return RateRepository()
 
     def _currency_to_dto(self, currency: Currency) -> CurrencyDto:
         if currency.id is not None:
