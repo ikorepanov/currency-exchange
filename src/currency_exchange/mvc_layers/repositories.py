@@ -20,9 +20,9 @@ class CurrencyRepository:
         query_result = self._retrieve_one(cur_code)
         return Currency(query_result[0], cur_code, query_result[1], query_result[2])
 
-    def get_currency_with_id(self, cur_id: int) -> Currency:
-        raw_data = self._retrieve_one_with_id(cur_id)
-        return Currency(cur_id, raw_data[0], raw_data[1], raw_data[2])
+    def get_currency_by_id(self, cur_id: int) -> Currency:
+        query_result = self._retrieve_one_by_id(cur_id)
+        return Currency(cur_id, query_result[0], query_result[1], query_result[2])
 
     def save_currency(self, currency: Currency) -> Currency:
         currency.id = self._save_one(currency.code, currency.full_name, currency.sign)
@@ -67,7 +67,7 @@ class CurrencyRepository:
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def _retrieve_one_with_id(self, cur_id: int) -> tuple[str, str, str]:
+    def _retrieve_one_by_id(self, cur_id: int) -> tuple[str, str, str]:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -84,8 +84,9 @@ class CurrencyRepository:
 
 
 class RateRepository:
-    def get_all_rates(self) -> list[Rate]:
-        return [Rate(row[0], row[1], row[2], row[3]) for row in self._retrieve_all()]
+    def get_rates(self) -> list[Rate]:
+        query_result = self._retrieve_all()
+        return [Rate(row[0], row[1], row[2], row[3]) for row in query_result]
 
     def get_rate_with_cur_ids(
         self, base_currency_id: int, target_currency_id: int

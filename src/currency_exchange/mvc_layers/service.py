@@ -27,19 +27,15 @@ class Service:
         currency = self.currency_repository.get_currency(cur_code)
         return self._currency_to_dto(currency)
 
-    def get_currency_with_id(self, cur_id: int) -> CurrencyDto:
-        return self._currency_to_dto(
-            self.currency_repository.get_currency_with_id(cur_id)
-        )
-
-    def get_all_rates(self) -> list[RateDto]:
+    def get_rates(self) -> list[RateDto]:
+        rates = self.rate_repository.get_rates()
         return [
             self._rate_to_dto(
                 rate,
-                self.get_currency_with_id(rate.base_id),
-                self.get_currency_with_id(rate.target_id),
+                self.currency_repository.get_currency_by_id(rate.base_id),
+                self.currency_repository.get_currency_by_id(rate.target_id),
             )
-            for rate in self.rate_repository.get_all_rates()
+            for rate in rates
         ]
 
     def get_rate(self, code_pair: str) -> RateDto:
@@ -49,8 +45,8 @@ class Service:
             self.rate_repository.get_rate_with_cur_ids(
                 base_currency_dto.id, target_currency_dto.id
             ),
-            base_currency_dto,
-            target_currency_dto,
+            base_currency_dto,  # type: ignore
+            target_currency_dto,  # type: ignore
         )
 
     def save_currency(self, currency_dto: CurrencyPostDto) -> CurrencyDto:
@@ -76,7 +72,9 @@ class Service:
             None, base_currency_dto.id, target_currency_dto.id, rate_post_dto.rate
         )
         return self._rate_to_dto(
-            self.rate_repository.save_rate(rate), base_currency_dto, target_currency_dto
+            self.rate_repository.save_rate(rate),
+            base_currency_dto,  # type: ignore
+            target_currency_dto,  # type: ignore
         )
 
     def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
@@ -90,8 +88,8 @@ class Service:
         )
         return self._rate_to_dto(
             self.rate_repository.update_rate(rate),
-            base_currency_dto,
-            target_currency_dto,
+            base_currency_dto,  # type: ignore
+            target_currency_dto,  # type: ignore
         )
 
     def exchange_currencies(self, exchange_post_dto: ExchangePostDto) -> ExchangeDto:
@@ -154,14 +152,14 @@ class Service:
     def _rate_to_dto(
         self,
         rate: Rate,
-        base_currency_dto: CurrencyDto,
-        target_currency_dto: CurrencyDto,
+        base_currency: Currency,
+        target_currency: Currency,
     ) -> RateDto:
         if rate.id is not None:
             id = rate.id
         return RateDto(
             id,
-            base_currency_dto,
-            target_currency_dto,
+            self._currency_to_dto(base_currency),
+            self._currency_to_dto(target_currency),
             rate.rate,
         )

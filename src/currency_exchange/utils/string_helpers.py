@@ -13,30 +13,30 @@ def serialize(
     data: CurrencyDto | RateDto | ExchangeDto | list[CurrencyDto] | list[RateDto],
 ) -> str:
     if isinstance(data, (CurrencyDto, RateDto, ExchangeDto)):
-        return _to_json(_to_dict(data))
+        return to_json(to_dict(data))
     else:
-        return _to_json([_to_dict(obj) for obj in data])
+        return to_json([to_dict(obj) for obj in data])
 
 
-def _to_json(obj: dict[str, Any] | list[dict[str, Any]]) -> str:
+def to_json(obj: dict[str, Any] | list[dict[str, Any]]) -> str:
     return json.dumps(obj, ensure_ascii=False)
 
 
-def _to_dict(obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
-    return _convert_keys(asdict(obj))
+def to_dict(obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
+    return convert_keys(asdict(obj))
 
 
-def _convert_keys(original: dict[str, Any]) -> dict[str, Any]:
+def convert_keys(original: dict[str, Any]) -> dict[str, Any]:
     return {
-        (_to_lower_camel_case(key) if '_' in key else key): value
+        (to_lower_camel_case(key) if '_' in key else key): value
         for key, value in original.items()
     }
 
 
-def _to_lower_camel_case(snake_str: str) -> str:
-    camel_string = _to_camel_case(snake_str)
+def to_lower_camel_case(snake_str: str) -> str:
+    camel_string = to_camel_case(snake_str)
     return snake_str[0].lower() + camel_string[1:]
 
 
-def _to_camel_case(snake_str: str) -> str:
+def to_camel_case(snake_str: str) -> str:
     return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))

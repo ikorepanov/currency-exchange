@@ -110,7 +110,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             except NoDataBaseConnectionError as error:
                 self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
         else:
-            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def get_currency(self) -> None:
         if self.second_segment is None:
@@ -131,17 +131,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                     'Код валюты должен состоять из 3 заглавных английских букв',
                 )
         else:
-            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def get_rates(self) -> None:
-        if len(self.path_segments) > 1:
-            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
-        try:
-            data = self.service.get_all_rates()
-            response = serialize(data)
-            self.send_json_response(HTTPStatus.OK, response)
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
+        if len(self.path_segments) == 1:
+            try:
+                data = self.service.get_rates()
+                response = serialize(data)
+                self.send_json_response(HTTPStatus.OK, response)
+            except NoDataBaseConnectionError as error:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def get_rate(self) -> None:
         if len(self.path_segments) > 2:
