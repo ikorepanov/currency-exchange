@@ -11,12 +11,11 @@ from currency_exchange.dtos import (
 from currency_exchange.exceptions import (
     CantConvertError,
     InvalidDataError,
-    InvalidRequestError,
     NoRateError,
 )
 from currency_exchange.models import Currency, Rate
 from currency_exchange.mvc_layers.repositories import CurrencyRepository, RateRepository
-from currency_exchange.utils.validation import is_valid, is_valid_cur_code
+from currency_exchange.utils.validation import is_valid_cur_code
 
 
 class Service:
@@ -25,12 +24,8 @@ class Service:
         return [self._currency_to_dto(currency) for currency in currencies]
 
     def get_currency(self, cur_code: str) -> CurrencyDto:
-        if is_valid(cur_code):
-            currency = self.currency_repository.get_currency(cur_code)
-            return self._currency_to_dto(currency)
-        raise InvalidRequestError(
-            'Код валюты должен состоять из 3 заглавных английских букв'
-        )
+        currency = self.currency_repository.get_currency(cur_code)
+        return self._currency_to_dto(currency)
 
     def get_currency_with_id(self, cur_id: int) -> CurrencyDto:
         return self._currency_to_dto(

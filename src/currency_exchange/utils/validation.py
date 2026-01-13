@@ -16,10 +16,6 @@ def is_valid_cur_code(cur_code: str) -> bool:
     )
 
 
-def is_valid(cur_code: str) -> bool:
-    return cur_code.isascii() and cur_code.isupper() and len(cur_code) == 3
-
-
 def is_valid_amount(str_amount: str) -> bool:
     if _is_amount_could_be_float(str_amount):
         return float(str_amount) > 0

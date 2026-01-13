@@ -14,7 +14,6 @@ from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
     InvalidDataError,
-    InvalidRequestError,
     NoCurrencyError,
     NoCurrencyPairError,
     NoDataBaseConnectionError,
@@ -23,6 +22,7 @@ from currency_exchange.exceptions import (
 )
 from currency_exchange.mvc_layers.service import Service
 from currency_exchange.utils.string_helpers import serialize
+from currency_exchange.utils.validation import is_valid_cur_code
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -116,7 +116,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.second_segment is None:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе')
         elif len(self.path_segments) == 2:
-            if self.second_segment.isalpha():
+            if is_valid_cur_code(self.second_segment):
                 try:
                     data = self.service.get_currency(self.second_segment)
                     response = serialize(data)
@@ -125,12 +125,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
                 except NoCurrencyError as error:
                     self.send_error(HTTPStatus.NOT_FOUND, str(error))
-                except InvalidRequestError as error:
-                    self.send_error(HTTPStatus.BAD_REQUEST, str(error))
             else:
-                print(self.second_segment)
                 self.send_error(
-                    HTTPStatus.BAD_REQUEST, 'Код валюты должен состоять из букв'
+                    HTTPStatus.BAD_REQUEST,
+                    'Код валюты должен состоять из 3 заглавных английских букв',
                 )
         else:
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
