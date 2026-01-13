@@ -88,10 +88,8 @@ class RateRepository:
         query_result = self._retrieve_all()
         return [Rate(row[0], row[1], row[2], row[3]) for row in query_result]
 
-    def get_rate_with_cur_ids(
-        self, base_currency_id: int, target_currency_id: int
-    ) -> Rate:
-        raw_data = self._retrieve_one_with_cur_ids(base_currency_id, target_currency_id)
+    def get_rate(self, base_currency_id: int, target_currency_id: int) -> Rate:
+        raw_data = self._retrieve_one(base_currency_id, target_currency_id)
         return Rate(
             raw_data[0],
             base_currency_id,
@@ -132,7 +130,7 @@ class RateRepository:
         except OperationalError:
             raise NoDataBaseConnectionError
 
-    def _retrieve_one_with_cur_ids(
+    def _retrieve_one(
         self, base_currency_id: int, target_currency_id: int
     ) -> tuple[int, float]:
         try:
@@ -145,10 +143,10 @@ class RateRepository:
                 )
                 query_result = cur.fetchone()
             if query_result is None:
-                raise NoRateError()
+                raise NoRateError('Обменный курс для пары не найден')
             return query_result
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
 
     def _update_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:

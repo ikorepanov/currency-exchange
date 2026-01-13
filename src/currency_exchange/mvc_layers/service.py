@@ -11,6 +11,7 @@ from currency_exchange.dtos import (
 from currency_exchange.exceptions import (
     CantConvertError,
     InvalidDataError,
+    NoCurrencyError,
     NoRateError,
 )
 from currency_exchange.models import Currency, Rate
@@ -39,15 +40,16 @@ class Service:
         ]
 
     def get_rate(self, code_pair: str) -> RateDto:
-        base_currency_dto = self.get_currency(code_pair[:3])
-        target_currency_dto = self.get_currency(code_pair[3:])
-        return self._rate_to_dto(
-            self.rate_repository.get_rate_with_cur_ids(
-                base_currency_dto.id, target_currency_dto.id
-            ),
-            base_currency_dto,  # type: ignore
-            target_currency_dto,  # type: ignore
-        )
+        try:
+            base_currency = self.currency_repository.get_currency(code_pair[:3])
+            target_currency = self.currency_repository.get_currency(code_pair[3:])
+        except NoCurrencyError:
+            raise NoRateError('Обменный курс для пары не найден')
+        if base_currency.id is not None and target_currency.id is not None:
+            base_currency_id = base_currency.id
+            target_currency_id = target_currency.id
+        rate = self.rate_repository.get_rate(base_currency_id, target_currency_id)
+        return self._rate_to_dto(rate, base_currency, target_currency)
 
     def save_currency(self, currency_dto: CurrencyPostDto) -> CurrencyDto:
         currency = Currency(

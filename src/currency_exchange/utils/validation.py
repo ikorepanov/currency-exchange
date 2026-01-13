@@ -1,12 +1,3 @@
-def is_valid_pair(code_pair: str) -> bool:
-    return (
-        code_pair.isalpha()
-        and code_pair.isascii()
-        and code_pair.isupper()
-        and len(code_pair) == 6
-    )
-
-
 def is_valid_cur_code(cur_code: str) -> bool:
     return (
         cur_code.isalpha()

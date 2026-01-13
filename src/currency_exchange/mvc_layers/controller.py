@@ -145,25 +145,29 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def get_rate(self) -> None:
-        if len(self.path_segments) > 2:
-            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
         if self.second_segment is None:
             self.send_error(
                 HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
             )
+        elif len(self.path_segments) == 2:
+            if is_valid_cur_code(self.second_segment[:3]) and is_valid_cur_code(
+                self.second_segment[3:]
+            ):
+                try:
+                    data = self.service.get_rate(self.second_segment)
+                    response = serialize(data)
+                    self.send_json_response(HTTPStatus.OK, response)
+                except NoDataBaseConnectionError as error:
+                    self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                except NoRateError as error:
+                    self.send_error(HTTPStatus.NOT_FOUND, str(error))
+            else:
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Пара кодов валют должна состоять из 6 заглавных английских букв',
+                )
         else:
-            try:
-                data = self.service.get_rate(self.second_segment)
-                response = serialize(data)
-                self.send_json_response(HTTPStatus.OK, response)
-            except NoDataBaseConnectionError:
-                self.send_error(
-                    HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна'
-                )
-            except (NoCurrencyError, NoRateError):
-                self.send_error(
-                    HTTPStatus.NOT_FOUND, 'Обменный курс для пары не найден'
-                )
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def create_currency(self, name: str, code: str, sign: str) -> None:
         try:
