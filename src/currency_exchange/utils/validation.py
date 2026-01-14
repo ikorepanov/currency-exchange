@@ -1,3 +1,14 @@
+from unicodedata import category
+
+
+def is_valid_name(name: str) -> bool:
+    return ''.join(name.split(' ')).isalpha() and name.isascii() and name[0].isupper()
+
+
+def is_valid_sign(sign: str) -> bool:
+    return len(sign) == 1 and category(sign) == 'Sc'
+
+
 def is_valid_cur_code(cur_code: str) -> bool:
     return (
         cur_code.isalpha()

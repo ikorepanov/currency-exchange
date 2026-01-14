@@ -2,7 +2,6 @@ from functools import cached_property
 
 from currency_exchange.dtos import (
     CurrencyDto,
-    CurrencyPostDto,
     ExchangeDto,
     ExchangePostDto,
     RateDto,
@@ -44,21 +43,24 @@ class Service:
             base_currency = self.currency_repository.get_currency(code_pair[:3])
             target_currency = self.currency_repository.get_currency(code_pair[3:])
         except NoCurrencyError:
-            raise NoRateError('Обменный курс для пары не найден')
+            raise NoRateError(
+                'Обменный курс для пары не найден, '
+                'так как не найдена одна или обе валюты'
+            )
         if base_currency.id is not None and target_currency.id is not None:
             base_currency_id = base_currency.id
             target_currency_id = target_currency.id
         rate = self.rate_repository.get_rate(base_currency_id, target_currency_id)
         return self._rate_to_dto(rate, base_currency, target_currency)
 
-    def save_currency(self, currency_dto: CurrencyPostDto) -> CurrencyDto:
-        currency = Currency(
-            None, currency_dto.code, currency_dto.name, currency_dto.sign
-        )
-        currency_with_id = self.currency_repository.save_currency(currency)
+    def create_currency(
+        self, cur_name: str, cur_code: str, cur_sign: str
+    ) -> CurrencyDto:
+        currency = Currency(None, cur_code, cur_name, cur_sign)
+        currency_with_id = self.currency_repository.create_currency(currency)
         return self._currency_to_dto(currency_with_id)
 
-    def save_rate(self, rate_post_dto: RatePostUpdateDto) -> RateDto:
+    def create_rate(self, rate_post_dto: RatePostUpdateDto) -> RateDto:
         base_currency_code = rate_post_dto.base_currency_code
         target_currency_code = rate_post_dto.target_currency_code
 

@@ -24,11 +24,14 @@ class CurrencyRepository:
         query_result = self._retrieve_one_by_id(cur_id)
         return Currency(cur_id, query_result[0], query_result[1], query_result[2])
 
-    def save_currency(self, currency: Currency) -> Currency:
-        currency.id = self._save_one(currency.code, currency.full_name, currency.sign)
+    def create_currency(self, currency: Currency) -> Currency:
+        query_result = self._create_one(
+            currency.code, currency.full_name, currency.sign
+        )
+        currency.id = query_result
         return currency
 
-    def _save_one(self, code: str, name: str, sign: str) -> int:
+    def _create_one(self, code: str, name: str, sign: str) -> int:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -39,9 +42,9 @@ class CurrencyRepository:
                 cur.execute('SELECT last_insert_rowid()')
             return cur.fetchone()[0]
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
         except IntegrityError:
-            raise CurrencyAlreadyExistsError
+            raise CurrencyAlreadyExistsError('Валюта с таким кодом уже существует')
 
     def _retrieve_all(self) -> list[tuple[int, str, str, str]]:
         try:

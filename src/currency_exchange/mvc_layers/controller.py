@@ -6,7 +6,6 @@ from typing import Any
 from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
 from currency_exchange.dtos import (
-    CurrencyPostDto,
     ExchangePostDto,
     RatePostUpdateDto,
 )
@@ -22,7 +21,11 @@ from currency_exchange.exceptions import (
 )
 from currency_exchange.mvc_layers.service import Service
 from currency_exchange.utils.string_helpers import serialize
-from currency_exchange.utils.validation import is_valid_cur_code
+from currency_exchange.utils.validation import (
+    is_valid_cur_code,
+    is_valid_name,
+    is_valid_sign,
+)
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -55,15 +58,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
     def do_POST(self) -> None:
-        if self.first_segment == 'currencies' and len(self.path_segments) == 1:
-            params = self.request_params
-            name_lst = params.get('name')
-            code_lst = params.get('code')
-            sign_lst = params.get('sign')
-            if name_lst is not None and code_lst is not None and sign_lst is not None:
-                self.create_currency(name_lst[0], code_lst[0], sign_lst[0])
-            else:
-                self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
+        if self.first_segment == 'currencies':
+            self.create_currency()
 
         elif self.first_segment == 'exchangeRates' and len(self.path_segments) == 1:
             params = self.request_params
@@ -84,7 +80,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
         else:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
     def do_PATCH(self) -> None:
         if self.first_segment == 'exchangeRate':
@@ -169,28 +165,55 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
-    def create_currency(self, name: str, code: str, sign: str) -> None:
-        try:
-            response = serialize(
-                self.service.save_currency(CurrencyPostDto(name, code, sign))
-            )
-            self.send_json_response(
-                HTTPStatus.CREATED,
-                response,
-            )
-        except ValueError as error:
-            self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
-        except CurrencyAlreadyExistsError:
-            self.send_error(HTTPStatus.CONFLICT, 'Валюта с таким кодом уже существует')
+    def create_currency(self) -> None:
+        if len(self.path_segments) == 1:
+            cur_name = self.request_params.get('name')
+            cur_code = self.request_params.get('code')
+            cur_sign = self.request_params.get('sign')
+
+            if not (cur_name and cur_code and cur_sign):
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Отсутствует нужное поле формы',
+                )
+            else:
+                if not is_valid_name(cur_name):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Имя валюты должно начинаться с заглавной буквы '
+                        'и состоять из букв английского алфавита',
+                    )
+                elif not is_valid_cur_code(cur_code):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Код валюты должен состоять из 3 заглавных английских букв',
+                    )
+                elif not is_valid_sign(cur_sign):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Знак валюты должен быть специальным Unicode-символом '
+                        'категории Currency_Symbol',
+                    )
+                else:
+                    try:
+                        data = self.service.create_currency(
+                            cur_name, cur_code, cur_sign
+                        )
+                        response = serialize(data)
+                        self.send_json_response(HTTPStatus.CREATED, response)
+                    except NoDataBaseConnectionError as error:
+                        self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                    except CurrencyAlreadyExistsError as error:
+                        self.send_error(HTTPStatus.CONFLICT, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def create_rate(
         self, base_currency_code: str, target_currency_code: str, rate: float
     ) -> None:
         try:
             response = serialize(
-                self.service.save_rate(
+                self.service.create_rate(
                     RatePostUpdateDto(base_currency_code, target_currency_code, rate)
                 )
             )
