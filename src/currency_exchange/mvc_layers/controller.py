@@ -12,7 +12,6 @@ from currency_exchange.dtos import (
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
-    InvalidDataError,
     NoCurrencyError,
     NoCurrencyPairError,
     NoDataBaseConnectionError,
@@ -22,6 +21,7 @@ from currency_exchange.exceptions import (
 from currency_exchange.mvc_layers.service import Service
 from currency_exchange.utils.string_helpers import serialize
 from currency_exchange.utils.validation import (
+    is_valid_amount,
     is_valid_cur_code,
     is_valid_name,
     is_valid_sign,
@@ -61,23 +61,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.first_segment == 'currencies':
             self.create_currency()
 
-        elif self.first_segment == 'exchangeRates' and len(self.path_segments) == 1:
-            params = self.request_params
-            base_currency_code_lst = params.get('baseCurrencyCode')
-            target_currency_code_lst = params.get('targetCurrencyCode')
-            rate_lst = params.get('rate')
-            if (
-                base_currency_code_lst is not None
-                and target_currency_code_lst is not None
-                and rate_lst is not None
-            ):
-                self.create_rate(
-                    base_currency_code_lst[0],
-                    target_currency_code_lst[0],
-                    float(rate_lst[0]),
-                )
-            else:
-                self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
+        elif self.first_segment == 'exchangeRates':
+            self.create_rate()
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
@@ -146,9 +131,20 @@ class RequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
             )
         elif len(self.path_segments) == 2:
-            if is_valid_cur_code(self.second_segment[:3]) and is_valid_cur_code(
-                self.second_segment[3:]
+            if not (
+                is_valid_cur_code(self.second_segment[:3])
+                and is_valid_cur_code(self.second_segment[3:])
             ):
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Пара кодов валют должна состоять из 6 заглавных английских букв',
+                )
+            elif self.second_segment[:3] == self.second_segment[3:]:
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Нельзя получить обменный курс валюты на саму себя',
+                )
+            else:
                 try:
                     data = self.service.get_rate(self.second_segment)
                     response = serialize(data)
@@ -157,11 +153,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
                 except NoRateError as error:
                     self.send_error(HTTPStatus.NOT_FOUND, str(error))
-            else:
-                self.send_error(
-                    HTTPStatus.BAD_REQUEST,
-                    'Пара кодов валют должна состоять из 6 заглавных английских букв',
-                )
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
@@ -208,37 +199,56 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
-    def create_rate(
-        self, base_currency_code: str, target_currency_code: str, rate: float
-    ) -> None:
-        try:
-            response = serialize(
-                self.service.create_rate(
-                    RatePostUpdateDto(base_currency_code, target_currency_code, rate)
+    def create_rate(self) -> None:
+        if len(self.path_segments) == 1:
+            base_cur_code = self.request_params.get('baseCurrencyCode')
+            target_cur_code = self.request_params.get('targetCurrencyCode')
+            exch_rate = self.request_params.get('rate')
+
+            if not (base_cur_code and target_cur_code and exch_rate):
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Отсутствует нужное поле формы',
                 )
-            )
-            self.send_json_response(
-                HTTPStatus.CREATED,
-                response,
-            )
-        except ValueError as error:
-            self.send_error(HTTPStatus.BAD_REQUEST, f'{error}')
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
-        except NoCurrencyError:
-            self.send_error(
-                HTTPStatus.NOT_FOUND,
-                'Одна (или обе) валюта из валютной пары не существует в БД',
-            )
-        except RateAlreadyExistsError:
-            self.send_error(
-                HTTPStatus.CONFLICT, 'Валютная пара с таким кодом уже существует'
-            )
-        except InvalidDataError:
-            self.send_error(
-                HTTPStatus.UNPROCESSABLE_ENTITY,
-                'code must be 3 uppercase English letters',
-            )
+            else:
+                if not (
+                    is_valid_cur_code(base_cur_code)
+                    and is_valid_cur_code(target_cur_code)
+                ):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Код валюты должен состоять из 3 заглавных английских букв',
+                    )
+                elif not is_valid_amount(exch_rate):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Обменный курс должен быть представлен целым числом '
+                        'или числом с плавающей точкой с не более чем шестью '
+                        'десятичными знаками',
+                    )
+                elif base_cur_code == target_cur_code:
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Нельзя добавить обменный курс валюты на саму себя',
+                    )
+                else:
+                    try:
+                        data = self.service.create_rate(
+                            base_cur_code, target_cur_code, exch_rate
+                        )
+                        response = serialize(data)
+                        self.send_json_response(
+                            HTTPStatus.CREATED,
+                            response,
+                        )
+                    except NoDataBaseConnectionError as error:
+                        self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                    except NoCurrencyPairError as error:
+                        self.send_error(HTTPStatus.NOT_FOUND, str(error))
+                    except RateAlreadyExistsError as error:
+                        self.send_error(HTTPStatus.CONFLICT, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def update_rate(self, code_pair: str, rate: float) -> None:
         try:

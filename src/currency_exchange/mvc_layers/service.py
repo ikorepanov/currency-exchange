@@ -9,13 +9,12 @@ from currency_exchange.dtos import (
 )
 from currency_exchange.exceptions import (
     CantConvertError,
-    InvalidDataError,
     NoCurrencyError,
+    NoCurrencyPairError,
     NoRateError,
 )
 from currency_exchange.models import Currency, Rate
 from currency_exchange.mvc_layers.repositories import CurrencyRepository, RateRepository
-from currency_exchange.utils.validation import is_valid_cur_code
 
 
 class Service:
@@ -60,26 +59,22 @@ class Service:
         currency_with_id = self.currency_repository.create_currency(currency)
         return self._currency_to_dto(currency_with_id)
 
-    def create_rate(self, rate_post_dto: RatePostUpdateDto) -> RateDto:
-        base_currency_code = rate_post_dto.base_currency_code
-        target_currency_code = rate_post_dto.target_currency_code
-
-        if is_valid_cur_code(base_currency_code) and is_valid_cur_code(
-            target_currency_code
-        ):
-            base_currency_dto = self.get_currency(rate_post_dto.base_currency_code)
-            target_currency_dto = self.get_currency(rate_post_dto.target_currency_code)
-        else:
-            raise InvalidDataError
-
-        rate = Rate(
-            None, base_currency_dto.id, target_currency_dto.id, rate_post_dto.rate
-        )
-        return self._rate_to_dto(
-            self.rate_repository.save_rate(rate),
-            base_currency_dto,  # type: ignore
-            target_currency_dto,  # type: ignore
-        )
+    def create_rate(
+        self, base_cur_code: str, target_cur_code: str, rate: str
+    ) -> RateDto:
+        try:
+            base_currency = self.currency_repository.get_currency(base_cur_code)
+            target_currency = self.currency_repository.get_currency(target_cur_code)
+        except NoCurrencyError:
+            raise NoCurrencyPairError(
+                'Одна (или обе) валюта из валютной пары не существует в БД'
+            )
+        if base_currency.id is not None and target_currency.id is not None:
+            base_currency_id = base_currency.id
+            target_currency_id = target_currency.id
+        exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))
+        exchange_rate_with_id = self.rate_repository.create_rate(exchange_rate)
+        return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
     def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
         base_currency_dto = self.get_currency(rate_update_dto.base_currency_code)

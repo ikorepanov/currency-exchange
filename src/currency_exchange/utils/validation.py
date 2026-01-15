@@ -20,7 +20,7 @@ def is_valid_cur_code(cur_code: str) -> bool:
 
 def is_valid_amount(str_amount: str) -> bool:
     if _is_amount_could_be_float(str_amount):
-        return float(str_amount) > 0
+        return float(str_amount) > 0 and len(str(float(str_amount)).split('.')[1]) <= 6
     else:
         return False
 

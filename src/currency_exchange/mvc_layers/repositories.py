@@ -100,15 +100,16 @@ class RateRepository:
             raw_data[1],
         )
 
-    def save_rate(self, rate: Rate) -> Rate:
-        rate.id = self._save_one(rate.base_id, rate.target_id, rate.rate)
+    def create_rate(self, rate: Rate) -> Rate:
+        query_result = self._create_one(rate.base_id, rate.target_id, rate.rate)
+        rate.id = query_result
         return rate
 
     def update_rate(self, rate: Rate) -> Rate:
         rate.id = self._update_one(rate.base_id, rate.target_id, rate.rate)
         return rate
 
-    def _save_one(self, base_id: int, target_id: int, rate: float) -> int:
+    def _create_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -120,9 +121,9 @@ class RateRepository:
                 cur.execute('SELECT last_insert_rowid()')
             return cur.fetchone()[0]
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
         except IntegrityError:
-            raise RateAlreadyExistsError
+            raise RateAlreadyExistsError('Валютная пара с таким кодом уже существует')
 
     def _retrieve_all(self) -> list[tuple[int, int, int, float]]:
         try:
