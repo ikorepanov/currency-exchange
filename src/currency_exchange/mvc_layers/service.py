@@ -3,7 +3,6 @@ from functools import cached_property
 from currency_exchange.dtos import (
     CurrencyDto,
     ExchangeDto,
-    ExchangePostDto,
     RateDto,
 )
 from currency_exchange.exceptions import (
@@ -14,6 +13,8 @@ from currency_exchange.exceptions import (
 )
 from currency_exchange.models import Currency, Rate
 from currency_exchange.mvc_layers.repositories import CurrencyRepository, RateRepository
+
+EXCHANGE_RATE_HELPER_CUR_CODE = 'PPP'
 
 
 class Service:
@@ -91,45 +92,64 @@ class Service:
         exchange_rate_with_id = self.rate_repository.update_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
-    def exchange_currencies(self, exchange_post_dto: ExchangePostDto) -> ExchangeDto:
-        from_currency_code = exchange_post_dto.from_currency_code
-        to_currency_code = exchange_post_dto.to_currency_code
-        amount = exchange_post_dto.amount
-
+    def exchange_currencies(
+        self, from_cur_code: str, to_cur_code: str, amount: float
+    ) -> ExchangeDto:
         try:
-            exch_rate = self.get_rate(from_currency_code + to_currency_code)
-            rate = exch_rate.rate
-        except NoRateError:
-            try:
-                reversed_rate = self.get_rate(to_currency_code + from_currency_code)
-                rate = reversed_rate.rate
-            except NoRateError:
-                try:
-                    base_cur_dto = self.get_currency(from_currency_code)
-                    target_cur_dto = self.get_currency(to_currency_code)
-
-                    interm_rate_1 = self.get_rate('USD' + from_currency_code)
-                    interm_rate_2 = self.get_rate('USD' + to_currency_code)
-                    rate = interm_rate_2.rate / interm_rate_1.rate
-                except NoRateError:
-                    raise CantConvertError()
-                return ExchangeDto(
-                    base_cur_dto,
-                    target_cur_dto,
-                    rate,
-                    amount,
-                    rate * amount,
-                )
-            return ExchangeDto(
-                reversed_rate.target_currency,
-                reversed_rate.base_currency,
-                rate,
-                amount,
-                rate * amount,
+            from_currency = self.currency_repository.get_currency(from_cur_code)
+            to_currency = self.currency_repository.get_currency(to_cur_code)
+        except NoCurrencyError:
+            raise CantConvertError(
+                'Расчёт перевода невозможен, так как не найдена одна или обе валюты'
             )
+        if from_currency.id is not None and to_currency.id is not None:
+            from_currency_id = from_currency.id
+            to_currency_id = to_currency.id
+
+        # 1.
+        try:
+            exchange_rate = self.rate_repository.get_rate(
+                from_currency_id, to_currency_id
+            )
+            rate = exchange_rate.rate
+        except NoRateError:
+            # 2.
+            try:
+                reversed_exchange_rate = self.rate_repository.get_rate(
+                    to_currency_id, from_currency_id
+                )
+                rate = 1 / reversed_exchange_rate.rate
+            except NoRateError:
+                # 3.
+                try:
+                    usd_currency = self.currency_repository.get_currency(
+                        EXCHANGE_RATE_HELPER_CUR_CODE
+                    )
+                except NoCurrencyError:
+                    raise CantConvertError(
+                        'Расчёт перевода невозможен, так как отсутствует '
+                        'вспомогательная валюта, необходимая для вычисления '
+                        'обменного курса'
+                    )
+                if usd_currency.id is not None:
+                    usd_currency_id = usd_currency.id
+
+                try:
+                    rate_usd_from = self.rate_repository.get_rate(
+                        usd_currency_id, from_currency_id
+                    )
+                    rate_usd_to = self.rate_repository.get_rate(
+                        usd_currency_id, to_currency_id
+                    )
+                    rate = rate_usd_to.rate / rate_usd_from.rate
+                except NoRateError:
+                    raise CantConvertError(
+                        'Расчёт перевода невозможен, так как отсутствуют '
+                        'данные для вычисления обменного курса'
+                    )
         return ExchangeDto(
-            exch_rate.base_currency,
-            exch_rate.target_currency,
+            self._currency_to_dto(from_currency),
+            self._currency_to_dto(to_currency),
             rate,
             amount,
             rate * amount,

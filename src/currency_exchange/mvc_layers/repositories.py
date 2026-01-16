@@ -82,7 +82,7 @@ class CurrencyRepository:
                 raise NoCurrencyError()
             return query_result
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
 
 
 class RateRepository:
@@ -132,7 +132,7 @@ class RateRepository:
                 cur.execute('SELECT * FROM ExchangeRates')
             return cur.fetchall()
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')
 
     def _retrieve_one(
         self, base_currency_id: int, target_currency_id: int

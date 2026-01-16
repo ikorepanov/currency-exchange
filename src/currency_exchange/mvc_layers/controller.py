@@ -5,9 +5,6 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
-from currency_exchange.dtos import (
-    ExchangePostDto,
-)
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
@@ -42,16 +39,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.get_rate()
 
         elif self.first_segment == 'exchange':
-            params = self.query_params
-            from_lst = params.get('from')
-            to_lst = params.get('to')
-            amount_lst = params.get('amount')
-            if from_lst is not None and to_lst is not None and amount_lst is not None:
-                self.exchange(from_lst[0], to_lst[0], float(amount_lst[0]))
-            else:
-                self.send_error(
-                    HTTPStatus.BAD_REQUEST, 'Не переданы один или несколько параметров'
-                )
+            self.exchange()
 
         else:
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
@@ -292,21 +280,44 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
-    def exchange(self, from_cur_code: str, to_cur_code: str, amount: float) -> None:
-        try:
-            response = serialize(
-                self.service.exchange_currencies(
-                    ExchangePostDto(from_cur_code, to_cur_code, amount)
+    def exchange(self) -> None:
+        if len(self.path_segments) == 1:
+            from_cur_code = self.query_params.get('from')
+            to_cur_code = self.query_params.get('to')
+            amount = self.query_params.get('amount')
+
+            if from_cur_code is None or to_cur_code is None or amount is None:
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Отсутствует один или несколько нужных параметров запроса',
                 )
-            )
-            self.send_json_response(
-                HTTPStatus.OK,
-                response,
-            )
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
-        except CantConvertError:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            else:
+                if not is_valid_cur_code(from_cur_code) or not is_valid_cur_code(
+                    to_cur_code
+                ):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Код валюты должен состоять из 3 заглавных английских букв',
+                    )
+                elif not is_valid_amount(amount):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Количество средств для рассчёта перевода '
+                        'должно быть положительным числом',
+                    )
+                else:
+                    try:
+                        data = self.service.exchange_currencies(
+                            from_cur_code, to_cur_code, float(amount)
+                        )
+                        response = serialize(data)
+                        self.send_json_response(HTTPStatus.OK, response)
+                    except NoDataBaseConnectionError as error:
+                        self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                    except CantConvertError as error:
+                        self.send_error(HTTPStatus.NOT_FOUND, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def send_json_response(self, status_code: int, response: str) -> None:
         body = response.encode('utf-8')
