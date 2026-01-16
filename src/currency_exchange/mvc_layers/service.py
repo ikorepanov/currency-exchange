@@ -5,7 +5,6 @@ from currency_exchange.dtos import (
     ExchangeDto,
     ExchangePostDto,
     RateDto,
-    RatePostUpdateDto,
 )
 from currency_exchange.exceptions import (
     CantConvertError,
@@ -76,20 +75,21 @@ class Service:
         exchange_rate_with_id = self.rate_repository.create_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
-    def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
-        base_currency_dto = self.get_currency(rate_update_dto.base_currency_code)
-        target_currency_dto = self.get_currency(rate_update_dto.target_currency_code)
-        rate = Rate(
-            None,
-            base_currency_dto.id,
-            target_currency_dto.id,
-            rate_update_dto.rate,
-        )
-        return self._rate_to_dto(
-            self.rate_repository.update_rate(rate),
-            base_currency_dto,  # type: ignore
-            target_currency_dto,  # type: ignore
-        )
+    def update_rate(self, code_pair: str, rate: str) -> RateDto:
+        try:
+            base_currency = self.currency_repository.get_currency(code_pair[:3])
+            target_currency = self.currency_repository.get_currency(code_pair[3:])
+        except NoCurrencyError:
+            raise NoRateError(
+                'Валютная пара отсутствует в базе данных, '
+                'так как не найдена одна или обе валюты'
+            )
+        if base_currency.id is not None and target_currency.id is not None:
+            base_currency_id = base_currency.id
+            target_currency_id = target_currency.id
+        exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))
+        exchange_rate_with_id = self.rate_repository.update_rate(exchange_rate)
+        return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
     def exchange_currencies(self, exchange_post_dto: ExchangePostDto) -> ExchangeDto:
         from_currency_code = exchange_post_dto.from_currency_code

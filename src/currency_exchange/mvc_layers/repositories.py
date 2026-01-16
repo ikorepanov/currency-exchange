@@ -3,7 +3,6 @@ from sqlite3 import IntegrityError, OperationalError, connect
 from currency_exchange.exceptions import (
     CurrencyAlreadyExistsError,
     NoCurrencyError,
-    NoCurrencyPairError,
     NoDataBaseConnectionError,
     NoRateError,
     RateAlreadyExistsError,
@@ -106,7 +105,8 @@ class RateRepository:
         return rate
 
     def update_rate(self, rate: Rate) -> Rate:
-        rate.id = self._update_one(rate.base_id, rate.target_id, rate.rate)
+        query_result = self._update_one(rate.base_id, rate.target_id, rate.rate)
+        rate.id = query_result
         return rate
 
     def _create_one(self, base_id: int, target_id: int, rate: float) -> int:
@@ -168,7 +168,7 @@ class RateRepository:
                 )
                 query_result = cur.fetchone()
             if query_result is None:
-                raise NoCurrencyPairError()
+                raise NoRateError('Валютная пара отсутствует в базе данных')
             return query_result[0]
         except OperationalError:
-            raise NoDataBaseConnectionError
+            raise NoDataBaseConnectionError('База данных недоступна')

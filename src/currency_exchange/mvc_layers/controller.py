@@ -7,7 +7,6 @@ from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
 from currency_exchange.dtos import (
     ExchangePostDto,
-    RatePostUpdateDto,
 )
 from currency_exchange.exceptions import (
     CantConvertError,
@@ -69,18 +68,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_PATCH(self) -> None:
         if self.first_segment == 'exchangeRate':
-            if len(self.path_segments) == 1:
-                self.send_error(HTTPStatus.BAD_REQUEST)
-            elif len(self.path_segments) == 2:
-                code_pair = self.second_segment
-
-                params = self.request_params
-                rate_lst = params.get('rate')
-                if rate_lst is not None and code_pair is not None:
-                    self.update_rate(code_pair, float(rate_lst[0]))
+            self.update_rate()
 
         else:
-            self.send_error(HTTPStatus.NOT_FOUND)
+            self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
     def get_currencies(self) -> None:
         if len(self.path_segments) == 1:
@@ -131,22 +122,25 @@ class RequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
             )
         elif len(self.path_segments) == 2:
+            code_pair = self.second_segment
+            base_cur_code = self.second_segment[:3]
+            target_cur_code = self.second_segment[3:]
+
             if not (
-                is_valid_cur_code(self.second_segment[:3])
-                and is_valid_cur_code(self.second_segment[3:])
+                is_valid_cur_code(base_cur_code) and is_valid_cur_code(target_cur_code)
             ):
                 self.send_error(
                     HTTPStatus.BAD_REQUEST,
                     'Пара кодов валют должна состоять из 6 заглавных английских букв',
                 )
-            elif self.second_segment[:3] == self.second_segment[3:]:
+            elif base_cur_code == target_cur_code:
                 self.send_error(
                     HTTPStatus.BAD_REQUEST,
                     'Нельзя получить обменный курс валюты на саму себя',
                 )
             else:
                 try:
-                    data = self.service.get_rate(self.second_segment)
+                    data = self.service.get_rate(code_pair)
                     response = serialize(data)
                     self.send_json_response(HTTPStatus.OK, response)
                 except NoDataBaseConnectionError as error:
@@ -162,7 +156,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             cur_code = self.request_params.get('code')
             cur_sign = self.request_params.get('sign')
 
-            if not (cur_name and cur_code and cur_sign):
+            if cur_name is None or cur_code is None or cur_sign is None:
                 self.send_error(
                     HTTPStatus.BAD_REQUEST,
                     'Отсутствует нужное поле формы',
@@ -205,7 +199,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             target_cur_code = self.request_params.get('targetCurrencyCode')
             exch_rate = self.request_params.get('rate')
 
-            if not (base_cur_code and target_cur_code and exch_rate):
+            if base_cur_code is None or target_cur_code is None or exch_rate is None:
                 self.send_error(
                     HTTPStatus.BAD_REQUEST,
                     'Отсутствует нужное поле формы',
@@ -250,23 +244,53 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
-    def update_rate(self, code_pair: str, rate: float) -> None:
-        try:
-            response = serialize(
-                self.service.update_rate(
-                    RatePostUpdateDto(code_pair[:3], code_pair[3:], rate)
-                )
+    def update_rate(self) -> None:
+        if self.second_segment is None:
+            self.send_error(
+                HTTPStatus.BAD_REQUEST, 'Коды валют пары отсутствуют в адресе'
             )
-            self.send_json_response(
-                HTTPStatus.OK,
-                response,
-            )
-        except ValueError:
-            self.send_error(HTTPStatus.BAD_REQUEST)
-        except NoDataBaseConnectionError:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, 'База данных недоступна')
-        except NoCurrencyPairError:
-            self.send_error(HTTPStatus.NOT_FOUND)
+        elif len(self.path_segments) == 2:
+            code_pair = self.second_segment
+            base_cur_code = self.second_segment[:3]
+            target_cur_code = self.second_segment[3:]
+            exch_rate = self.request_params.get('rate')
+
+            if exch_rate is None:
+                self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
+
+            else:
+                if not (
+                    is_valid_cur_code(base_cur_code)
+                    and is_valid_cur_code(target_cur_code)
+                ):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Пара кодов валют должна состоять '
+                        'из 6 заглавных английских букв',
+                    )
+                elif not is_valid_amount(exch_rate):
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Обменный курс должен быть представлен целым числом '
+                        'или числом с плавающей точкой с не более чем шестью '
+                        'десятичными знаками',
+                    )
+                elif base_cur_code == target_cur_code:
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Нельзя обновить обменный курс валюты на саму себя',
+                    )
+                else:
+                    try:
+                        data = self.service.update_rate(code_pair, exch_rate)
+                        response = serialize(data)
+                        self.send_json_response(HTTPStatus.OK, response)
+                    except NoDataBaseConnectionError as error:
+                        self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+                    except NoRateError as error:
+                        self.send_error(HTTPStatus.NOT_FOUND, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
     def exchange(self, from_cur_code: str, to_cur_code: str, amount: float) -> None:
         try:
