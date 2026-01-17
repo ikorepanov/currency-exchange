@@ -5,6 +5,7 @@ from typing import NamedTuple
 from currency_exchange.constants import EXCHANGE_RATE_HELPER_CUR_CODE
 from currency_exchange.dtos import (
     CurrencyDto,
+    CurrencyPostDto,
     ExchangeDto,
     RateDto,
 )
@@ -58,9 +59,10 @@ class Service:
         rate = self.repository.get_rate(base_currency_id, target_currency_id)
         return self._rate_to_dto(rate, base_currency, target_currency)
 
-    def create_currency(
-        self, cur_name: str, cur_code: str, cur_sign: str
-    ) -> CurrencyDto:
+    def create_currency(self, currency_post_dto: CurrencyPostDto) -> CurrencyDto:
+        cur_code = currency_post_dto.code
+        cur_name = currency_post_dto.name
+        cur_sign = currency_post_dto.sign
         currency = Currency(None, cur_code, cur_name, cur_sign)
         currency_with_id = self.repository.create_currency(currency)
         return self._currency_to_dto(currency_with_id)
