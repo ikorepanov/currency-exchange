@@ -275,7 +275,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        data = self.service.update_rate(code_pair, exch_rate)
+                        rate_update_dto = RatePostUpdateDto(
+                            code_pair[:3], code_pair[3:], exch_rate
+                        )
+                        data = self.service.update_rate(rate_update_dto)
                         response = serialize(data)
                         self.send_json_response(HTTPStatus.OK, response)
                     except NoDataBaseConnectionError as error:

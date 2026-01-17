@@ -84,11 +84,14 @@ class Service:
         exchange_rate_with_id = self.repository.create_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
-    def update_rate(self, code_pair: str, rate: str) -> RateDto:
+    def update_rate(self, rate_update_dto: RatePostUpdateDto) -> RateDto:
+        base_cur_code = rate_update_dto.base_currency_code
+        target_cur_code = rate_update_dto.target_currency_code
+        rate = rate_update_dto.rate
         base_currency, target_currency, base_currency_id, target_currency_id = (
             self._get_currencies_info(
-                code_pair[:3],
-                code_pair[3:],
+                base_cur_code,
+                target_cur_code,
                 NoRateError,
                 'Валютная пара отсутствует в базе данных, так как не найдена одна '
                 'или обе валюты',
