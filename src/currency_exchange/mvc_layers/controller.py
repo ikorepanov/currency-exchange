@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
-from currency_exchange.dtos import CurrencyPostDto, RatePostUpdateDto
+from currency_exchange.dtos import CurrencyPostDto, ExchangePostDto, RatePostUpdateDto
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
@@ -315,9 +315,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        data = self.service.exchange_currencies(
-                            from_cur_code, to_cur_code, float(amount)
+                        exchange_post_dto = ExchangePostDto(
+                            from_cur_code, to_cur_code, amount
                         )
+                        data = self.service.exchange_currencies(exchange_post_dto)
                         response = serialize(data)
                         self.send_json_response(HTTPStatus.OK, response)
                     except NoDataBaseConnectionError as error:

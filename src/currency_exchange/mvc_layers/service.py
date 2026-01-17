@@ -7,6 +7,7 @@ from currency_exchange.dtos import (
     CurrencyDto,
     CurrencyPostDto,
     ExchangeDto,
+    ExchangePostDto,
     RateDto,
     RatePostUpdateDto,
 )
@@ -101,9 +102,10 @@ class Service:
         exchange_rate_with_id = self.repository.update_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
-    def exchange_currencies(
-        self, from_cur_code: str, to_cur_code: str, amount: float
-    ) -> ExchangeDto:
+    def exchange_currencies(self, exchange_post_dto: ExchangePostDto) -> ExchangeDto:
+        from_cur_code = exchange_post_dto.from_currency_code
+        to_cur_code = exchange_post_dto.to_currency_code
+        amount = float(exchange_post_dto.amount)
         from_currency, to_currency, from_currency_id, to_currency_id = (
             self._get_currencies_info(
                 from_cur_code,
