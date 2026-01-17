@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
-from currency_exchange.dtos import CurrencyPostDto
+from currency_exchange.dtos import CurrencyPostDto, RatePostUpdateDto
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
@@ -219,9 +219,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        data = self.service.create_rate(
+                        rate_post_dto = RatePostUpdateDto(
                             base_cur_code, target_cur_code, exch_rate
                         )
+                        data = self.service.create_rate(rate_post_dto)
                         response = serialize(data)
                         self.send_json_response(
                             HTTPStatus.CREATED,

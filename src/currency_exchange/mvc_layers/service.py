@@ -8,6 +8,7 @@ from currency_exchange.dtos import (
     CurrencyPostDto,
     ExchangeDto,
     RateDto,
+    RatePostUpdateDto,
 )
 from currency_exchange.exceptions import (
     CantConvertError,
@@ -67,9 +68,10 @@ class Service:
         currency_with_id = self.repository.create_currency(currency)
         return self._currency_to_dto(currency_with_id)
 
-    def create_rate(
-        self, base_cur_code: str, target_cur_code: str, rate: str
-    ) -> RateDto:
+    def create_rate(self, rate_post_dto: RatePostUpdateDto) -> RateDto:
+        base_cur_code = rate_post_dto.base_currency_code
+        target_cur_code = rate_post_dto.target_currency_code
+        rate = rate_post_dto.rate
         base_currency, target_currency, base_currency_id, target_currency_id = (
             self._get_currencies_info(
                 base_cur_code,
