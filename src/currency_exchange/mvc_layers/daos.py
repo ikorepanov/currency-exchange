@@ -7,30 +7,10 @@ from currency_exchange.exceptions import (
     NoRateError,
     RateAlreadyExistsError,
 )
-from currency_exchange.models import Currency, Rate
 
 
-class CurrencyRepository:
-    def get_currencies(self) -> list[Currency]:
-        query_result = self._retrieve_all()
-        return [Currency(row[0], row[1], row[2], row[3]) for row in query_result]
-
-    def get_currency(self, cur_code: str) -> Currency:
-        query_result = self._retrieve_one(cur_code)
-        return Currency(query_result[0], cur_code, query_result[1], query_result[2])
-
-    def get_currency_by_id(self, cur_id: int) -> Currency:
-        query_result = self._retrieve_one_by_id(cur_id)
-        return Currency(cur_id, query_result[0], query_result[1], query_result[2])
-
-    def create_currency(self, currency: Currency) -> Currency:
-        query_result = self._create_one(
-            currency.code, currency.full_name, currency.sign
-        )
-        currency.id = query_result
-        return currency
-
-    def _create_one(self, code: str, name: str, sign: str) -> int:
+class CurrencyDao:
+    def create_one(self, code: str, name: str, sign: str) -> int:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -45,7 +25,7 @@ class CurrencyRepository:
         except IntegrityError:
             raise CurrencyAlreadyExistsError('Валюта с таким кодом уже существует')
 
-    def _retrieve_all(self) -> list[tuple[int, str, str, str]]:
+    def retrieve_all(self) -> list[tuple[int, str, str, str]]:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -54,7 +34,7 @@ class CurrencyRepository:
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def _retrieve_one(self, cur_code: str) -> tuple[int, str, str]:
+    def retrieve_one(self, cur_code: str) -> tuple[int, str, str]:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -69,7 +49,7 @@ class CurrencyRepository:
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def _retrieve_one_by_id(self, cur_id: int) -> tuple[str, str, str]:
+    def retrieve_one_by_id(self, cur_id: int) -> tuple[str, str, str]:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -85,31 +65,8 @@ class CurrencyRepository:
             raise NoDataBaseConnectionError('База данных недоступна')
 
 
-class RateRepository:
-    def get_rates(self) -> list[Rate]:
-        query_result = self._retrieve_all()
-        return [Rate(row[0], row[1], row[2], row[3]) for row in query_result]
-
-    def get_rate(self, base_currency_id: int, target_currency_id: int) -> Rate:
-        raw_data = self._retrieve_one(base_currency_id, target_currency_id)
-        return Rate(
-            raw_data[0],
-            base_currency_id,
-            target_currency_id,
-            raw_data[1],
-        )
-
-    def create_rate(self, rate: Rate) -> Rate:
-        query_result = self._create_one(rate.base_id, rate.target_id, rate.rate)
-        rate.id = query_result
-        return rate
-
-    def update_rate(self, rate: Rate) -> Rate:
-        query_result = self._update_one(rate.base_id, rate.target_id, rate.rate)
-        rate.id = query_result
-        return rate
-
-    def _create_one(self, base_id: int, target_id: int, rate: float) -> int:
+class RateDao:
+    def create_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -125,7 +82,7 @@ class RateRepository:
         except IntegrityError:
             raise RateAlreadyExistsError('Валютная пара с таким кодом уже существует')
 
-    def _retrieve_all(self) -> list[tuple[int, int, int, float]]:
+    def retrieve_all(self) -> list[tuple[int, int, int, float]]:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
@@ -134,7 +91,7 @@ class RateRepository:
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def _retrieve_one(
+    def retrieve_one(
         self, base_currency_id: int, target_currency_id: int
     ) -> tuple[int, float]:
         try:
@@ -152,7 +109,7 @@ class RateRepository:
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def _update_one(self, base_id: int, target_id: int, rate: float) -> int:
+    def update_one(self, base_id: int, target_id: int, rate: float) -> int:
         try:
             with connect('./src/currency_exchange/db/db.sqlite') as conn:
                 cur = conn.cursor()
