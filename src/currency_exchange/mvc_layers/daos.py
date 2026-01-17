@@ -77,7 +77,7 @@ class CurrencyDao(Dao):
         try:
             query_result = self.interact_with_db(queries)
             if query_result is None:
-                raise NoCurrencyError()
+                raise NoCurrencyError(f'Валюта с id {cur_id} не найдена')
             return query_result
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')

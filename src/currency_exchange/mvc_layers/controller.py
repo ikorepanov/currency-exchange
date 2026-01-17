@@ -1,12 +1,10 @@
 import json
-from collections.abc import Callable
 from functools import cached_property
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
-from currency_exchange.dtos import CurrencyDto, RateDto
 from currency_exchange.exceptions import (
     CantConvertError,
     CurrencyAlreadyExistsError,
@@ -29,13 +27,13 @@ from currency_exchange.utils.validation import (
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.first_segment == 'currencies':
-            self._get_entities(self.service.get_currencies)
+            self.get_currencies()
 
         elif self.first_segment == 'currency':
             self.get_currency()
 
         elif self.first_segment == 'exchangeRates':
-            self._get_entities(self.service.get_rates)
+            self.get_rates()
 
         elif self.first_segment == 'exchangeRate':
             self.get_rate()
@@ -63,6 +61,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(HTTPStatus.NOT_FOUND, 'Ресурс не найден')
 
+    def get_currencies(self) -> None:
+        if len(self.path_segments) == 1:
+            try:
+                data = self.service.get_currencies()
+                response = serialize(data)
+                self.send_json_response(HTTPStatus.OK, response)
+            except NoDataBaseConnectionError as error:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
+
     def get_currency(self) -> None:
         if self.second_segment is None:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе')
@@ -83,6 +92,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
                 except NoCurrencyError as error:
                     self.send_error(HTTPStatus.NOT_FOUND, str(error))
+        else:
+            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
+
+    def get_rates(self) -> None:
+        if len(self.path_segments) == 1:
+            try:
+                data = self.service.get_rates()
+                response = serialize(data)
+                self.send_json_response(HTTPStatus.OK, response)
+            except NoDataBaseConnectionError as error:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
@@ -377,16 +397,3 @@ class RequestHandler(BaseHTTPRequestHandler):
     @cached_property
     def query_params(self) -> dict[str, Any]:
         return dict(parse_qsl(self.parsed_path.query))
-
-    def _get_entities(
-        self, service_method: Callable[[], list[CurrencyDto] | list[RateDto]]
-    ) -> None:
-        if len(self.path_segments) == 1:
-            try:
-                data = service_method()
-                response = serialize(data)
-                self.send_json_response(HTTPStatus.OK, response)
-            except NoDataBaseConnectionError as error:
-                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
-        else:
-            self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
