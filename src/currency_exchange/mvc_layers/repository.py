@@ -10,7 +10,7 @@ class Repository:
         return [Currency(row[0], row[1], row[2], row[3]) for row in query_result]
 
     def get_currency(self, cur_code: str) -> Currency:
-        query_result = self.currency_dao.retrieve_one(cur_code)
+        query_result = self.currency_dao.retrieve_one_by_code(cur_code)
         return Currency(query_result[0], cur_code, query_result[1], query_result[2])
 
     def get_currency_by_id(self, cur_id: int) -> Currency:

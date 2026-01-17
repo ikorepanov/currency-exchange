@@ -1,5 +1,18 @@
-from sqlite3 import IntegrityError, OperationalError, connect
+from sqlite3 import Cursor, IntegrityError, OperationalError, connect
+from typing import Any
 
+from currency_exchange.constants import (
+    CREATE_CURRENCY_SQL,
+    CREATE_EXCHANGE_RATE_SQL,
+    GET_CURRENCIES_SQL,
+    GET_CURRENCY_BY_CODE_SQL,
+    GET_CURRENCY_BY_ID_SQL,
+    GET_EXCHANGE_RATE_SQL,
+    GET_EXCHANGE_RATES_SQL,
+    GET_LAST_CREATED_ID_SQL,
+    GET_LAST_UPDATED_ID_SQL,
+    UPDATE_EXCHANGE_RATE_SQL,
+)
 from currency_exchange.exceptions import (
     CurrencyAlreadyExistsError,
     NoCurrencyError,
@@ -9,40 +22,48 @@ from currency_exchange.exceptions import (
 )
 
 
-class CurrencyDao:
+class Dao:
+    def interact_with_db(self, queries: dict[str, Any], all: bool = False) -> Any:
+        with connect('./src/currency_exchange/db/db.sqlite') as conn:
+            cur = conn.cursor()
+            for sql, params in queries.items():
+                self._execute(cur, sql, params)
+        return cur.fetchall() if all else cur.fetchone()
+
+    def _execute(self, cur: Cursor, sql: str, params: tuple[Any] | None) -> None:
+        cur.execute(sql, params) if params is not None else cur.execute(sql)
+
+
+class CurrencyDao(Dao):
     def create_one(self, code: str, name: str, sign: str) -> int:
+        queries = {
+            CREATE_CURRENCY_SQL: (code, name, sign),
+            GET_LAST_CREATED_ID_SQL: None,
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    'INSERT INTO Currencies (Code, FullName, Sign) VALUES (?, ?, ?)',
-                    (code, name, sign),
-                )
-                cur.execute('SELECT last_insert_rowid()')
-            return cur.fetchone()[0]
+            query_result = self.interact_with_db(queries)
+            return query_result[0]
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
         except IntegrityError:
             raise CurrencyAlreadyExistsError('Валюта с таким кодом уже существует')
 
     def retrieve_all(self) -> list[tuple[int, str, str, str]]:
+        queries = {
+            GET_CURRENCIES_SQL: None,
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute('SELECT * FROM Currencies')
-            return cur.fetchall()
+            query_result = self.interact_with_db(queries, all=True)
+            return query_result
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def retrieve_one(self, cur_code: str) -> tuple[int, str, str]:
+    def retrieve_one_by_code(self, cur_code: str) -> tuple[int, str, str]:
+        queries = {
+            GET_CURRENCY_BY_CODE_SQL: (cur_code,),
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    'SELECT ID, FullName, Sign FROM Currencies WHERE Code = ?',
-                    (cur_code,),
-                )
-                query_result = cur.fetchone()
+            query_result = self.interact_with_db(queries)
             if query_result is None:
                 raise NoCurrencyError('Валюта не найдена')
             return query_result
@@ -50,14 +71,11 @@ class CurrencyDao:
             raise NoDataBaseConnectionError('База данных недоступна')
 
     def retrieve_one_by_id(self, cur_id: int) -> tuple[str, str, str]:
+        queries = {
+            GET_CURRENCY_BY_ID_SQL: (cur_id,),
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    'SELECT Code, FullName, Sign FROM Currencies WHERE ID = ?',
-                    (cur_id,),
-                )
-                query_result = cur.fetchone()
+            query_result = self.interact_with_db(queries)
             if query_result is None:
                 raise NoCurrencyError()
             return query_result
@@ -65,44 +83,38 @@ class CurrencyDao:
             raise NoDataBaseConnectionError('База данных недоступна')
 
 
-class RateDao:
+class RateDao(Dao):
     def create_one(self, base_id: int, target_id: int, rate: float) -> int:
+        queries = {
+            CREATE_EXCHANGE_RATE_SQL: (base_id, target_id, rate),
+            GET_LAST_CREATED_ID_SQL: None,
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    'INSERT INTO ExchangeRates '
-                    '(BaseCurrencyId, TargetCurrencyId, Rate) VALUES (?, ?, ?)',
-                    (base_id, target_id, rate),
-                )
-                cur.execute('SELECT last_insert_rowid()')
-            return cur.fetchone()[0]
+            query_result = self.interact_with_db(queries)
+            return query_result[0]
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
         except IntegrityError:
             raise RateAlreadyExistsError('Валютная пара с таким кодом уже существует')
 
     def retrieve_all(self) -> list[tuple[int, int, int, float]]:
+        queries = {
+            GET_EXCHANGE_RATES_SQL: None,
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute('SELECT * FROM ExchangeRates')
-            return cur.fetchall()
+            query_result = self.interact_with_db(queries, all=True)
+            return query_result
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
     def retrieve_one(
         self, base_currency_id: int, target_currency_id: int
     ) -> tuple[int, float]:
+        queries = {
+            GET_EXCHANGE_RATE_SQL: (base_currency_id, target_currency_id),
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    'SELECT ID, Rate FROM ExchangeRates '
-                    'WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
-                    (base_currency_id, target_currency_id),
-                )
-                query_result = cur.fetchone()
+            query_result = self.interact_with_db(queries)
             if query_result is None:
                 raise NoRateError('Обменный курс для пары не найден')
             return query_result
@@ -110,20 +122,12 @@ class RateDao:
             raise NoDataBaseConnectionError('База данных недоступна')
 
     def update_one(self, base_id: int, target_id: int, rate: float) -> int:
+        queries = {
+            UPDATE_EXCHANGE_RATE_SQL: (rate, base_id, target_id),
+            GET_LAST_UPDATED_ID_SQL: (base_id, target_id),
+        }
         try:
-            with connect('./src/currency_exchange/db/db.sqlite') as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    'UPDATE ExchangeRates SET Rate = ? '
-                    'WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
-                    (rate, base_id, target_id),
-                )
-                cur.execute(
-                    'SELECT ID FROM ExchangeRates '
-                    'WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?',
-                    (base_id, target_id),
-                )
-                query_result = cur.fetchone()
+            query_result = self.interact_with_db(queries)
             if query_result is None:
                 raise NoRateError('Валютная пара отсутствует в базе данных')
             return query_result[0]

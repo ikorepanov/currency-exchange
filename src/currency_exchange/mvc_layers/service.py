@@ -2,6 +2,7 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import NamedTuple
 
+from currency_exchange.constants import EXCHANGE_RATE_HELPER_CUR_CODE
 from currency_exchange.dtos import (
     CurrencyDto,
     ExchangeDto,
@@ -15,8 +16,6 @@ from currency_exchange.exceptions import (
 )
 from currency_exchange.models import Currency, Rate
 from currency_exchange.mvc_layers.repository import Repository
-
-EXCHANGE_RATE_HELPER_CUR_CODE = 'USD'
 
 
 class CurrenciesInfo(NamedTuple):
