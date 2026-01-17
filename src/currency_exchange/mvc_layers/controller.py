@@ -67,20 +67,22 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.second_segment is None:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Код валюты отсутствует в адресе')
         elif len(self.path_segments) == 2:
-            if is_valid_cur_code(self.second_segment):
+            cur_code = self.second_segment
+
+            if not is_valid_cur_code(cur_code):
+                self.send_error(
+                    HTTPStatus.BAD_REQUEST,
+                    'Код валюты должен состоять из 3 заглавных английских букв',
+                )
+            else:
                 try:
-                    data = self.service.get_currency(self.second_segment)
+                    data = self.service.get_currency(cur_code)
                     response = serialize(data)
                     self.send_json_response(HTTPStatus.OK, response)
                 except NoDataBaseConnectionError as error:
                     self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
                 except NoCurrencyError as error:
                     self.send_error(HTTPStatus.NOT_FOUND, str(error))
-            else:
-                self.send_error(
-                    HTTPStatus.BAD_REQUEST,
-                    'Код валюты должен состоять из 3 заглавных английских букв',
-                )
         else:
             self.send_error(HTTPStatus.BAD_REQUEST, 'Неправильный формат запроса')
 
