@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from functools import cached_property
 from typing import NamedTuple
 
@@ -49,15 +48,16 @@ class Service:
         ]
 
     def get_rate(self, code_pair: str) -> RateDto:
-        base_currency, target_currency, base_currency_id, target_currency_id = (
-            self._get_currencies_info(
-                code_pair[:3],
-                code_pair[3:],
-                NoRateError,
-                'Обменный курс для пары не найден, так как не найдена одна '
-                'или обе валюты',
+        try:
+            base_currency, target_currency, base_currency_id, target_currency_id = (
+                self._resolve_code_pair(code_pair[:3], code_pair[3:])
             )
-        )
+        except NoCurrencyError:
+            raise NoRateError(
+                'Обменный курс для пары не найден, так как не найдена одна '
+                'или обе валюты'
+            )
+
         rate = self.repository.get_rate(base_currency_id, target_currency_id)
         return self._rate_to_dto(rate, base_currency, target_currency)
 
@@ -73,14 +73,16 @@ class Service:
         base_cur_code = rate_post_dto.base_currency_code
         target_cur_code = rate_post_dto.target_currency_code
         rate = rate_post_dto.rate
-        base_currency, target_currency, base_currency_id, target_currency_id = (
-            self._get_currencies_info(
-                base_cur_code,
-                target_cur_code,
-                NoCurrencyPairError,
-                'Одна (или обе) валюта из валютной пары не существует в БД',
+
+        try:
+            base_currency, target_currency, base_currency_id, target_currency_id = (
+                self._resolve_code_pair(base_cur_code, target_cur_code)
             )
-        )
+        except NoCurrencyError:
+            raise NoCurrencyPairError(
+                'Одна (или обе) валюта из валютной пары не существует в БД'
+            )
+
         exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))
         exchange_rate_with_id = self.repository.create_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
@@ -89,15 +91,17 @@ class Service:
         base_cur_code = rate_update_dto.base_currency_code
         target_cur_code = rate_update_dto.target_currency_code
         rate = rate_update_dto.rate
-        base_currency, target_currency, base_currency_id, target_currency_id = (
-            self._get_currencies_info(
-                base_cur_code,
-                target_cur_code,
-                NoRateError,
-                'Валютная пара отсутствует в базе данных, так как не найдена одна '
-                'или обе валюты',
+
+        try:
+            base_currency, target_currency, base_currency_id, target_currency_id = (
+                self._resolve_code_pair(base_cur_code, target_cur_code)
             )
-        )
+        except NoCurrencyError:
+            raise NoRateError(
+                'Валютная пара отсутствует в базе данных, так как не найдена одна '
+                'или обе валюты'
+            )
+
         exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))
         exchange_rate_with_id = self.repository.update_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
@@ -106,14 +110,15 @@ class Service:
         from_cur_code = exchange_post_dto.from_currency_code
         to_cur_code = exchange_post_dto.to_currency_code
         amount = float(exchange_post_dto.amount)
-        from_currency, to_currency, from_currency_id, to_currency_id = (
-            self._get_currencies_info(
-                from_cur_code,
-                to_cur_code,
-                CantConvertError,
-                'Расчёт перевода невозможен, так как не найдена одна или обе валюты',
+
+        try:
+            from_currency, to_currency, from_currency_id, to_currency_id = (
+                self._resolve_code_pair(from_cur_code, to_cur_code)
             )
-        )
+        except NoCurrencyError:
+            raise CantConvertError(
+                'Расчёт перевода невозможен, так как не найдена одна или обе валюты'
+            )
 
         try:
             exchange_rate = self.repository.get_rate(from_currency_id, to_currency_id)
@@ -151,6 +156,7 @@ class Service:
                         'Расчёт перевода невозможен, так как отсутствуют '
                         'данные для вычисления обменного курса'
                     )
+
         return ExchangeDto(
             self._currency_to_dto(from_currency),
             self._currency_to_dto(to_currency),
@@ -183,21 +189,19 @@ class Service:
             rate.rate,
         )
 
-    def _get_currencies_info(
+    def _resolve_code_pair(
         self,
-        cur_code_1: str,
-        cur_code_2: str,
-        error_to_raise: Callable[
-            [str], NoRateError | NoCurrencyPairError | CantConvertError
-        ],
-        msg: str,
+        code_a: str,
+        code_b: str,
     ) -> CurrenciesInfo:
         try:
-            currency_1 = self.repository.get_currency(cur_code_1)
-            currency_2 = self.repository.get_currency(cur_code_2)
+            currency_a = self.repository.get_currency(code_a)
+            currency_b = self.repository.get_currency(code_b)
         except NoCurrencyError:
-            raise error_to_raise(msg)
-        if currency_1.id is not None and currency_2.id is not None:
-            currency_1_id = currency_1.id
-            currency_2_id = currency_2.id
-        return CurrenciesInfo(currency_1, currency_2, currency_1_id, currency_2_id)
+            raise
+
+        if currency_a.id is not None and currency_b.id is not None:
+            currency_a_id = currency_a.id
+            currency_b_id = currency_b.id
+
+        return CurrenciesInfo(currency_a, currency_b, currency_a_id, currency_b_id)
