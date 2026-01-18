@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import ParseResult, parse_qsl, unquote, urlparse
 
+from currency_exchange.constants import NUMBER_OF_DECIMAL_PLACES_FOR_RATES
 from currency_exchange.dtos import CurrencyPostDto, ExchangePostDto, RatePostUpdateDto
 from currency_exchange.exceptions import (
     CantConvertError,
@@ -230,7 +231,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        exch_rate_dec_round = round_decimal(Decimal(normalized_rate), 6)
+                        exch_rate_dec_round = round_decimal(
+                            Decimal(normalized_rate), NUMBER_OF_DECIMAL_PLACES_FOR_RATES
+                        )
                         rate_post_dto = RatePostUpdateDto(
                             base_cur_code, target_cur_code, exch_rate_dec_round
                         )
@@ -288,7 +291,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        exch_rate_dec_round = round_decimal(Decimal(normalized_rate), 6)
+                        exch_rate_dec_round = round_decimal(
+                            Decimal(normalized_rate), NUMBER_OF_DECIMAL_PLACES_FOR_RATES
+                        )
                         rate_update_dto = RatePostUpdateDto(
                             code_pair[:3], code_pair[3:], exch_rate_dec_round
                         )
