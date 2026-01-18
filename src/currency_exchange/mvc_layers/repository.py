@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import cached_property
 
 from currency_exchange.models import Currency, Rate
@@ -26,7 +27,7 @@ class Repository:
 
     def get_rates(self) -> list[Rate]:
         query_result = self.rate_dao.retrieve_all()
-        return [Rate(row[0], row[1], row[2], row[3]) for row in query_result]  # type: ignore
+        return [Rate(row[0], row[1], row[2], Decimal(row[3])) for row in query_result]
 
     def get_rate(self, base_currency_id: int, target_currency_id: int) -> Rate:
         query_result = self.rate_dao.retrieve_one(base_currency_id, target_currency_id)
@@ -34,7 +35,7 @@ class Repository:
             query_result[0],
             base_currency_id,
             target_currency_id,
-            query_result[1],  # type: ignore
+            Decimal(query_result[1]),
         )
 
     def create_rate(self, rate: Rate) -> Rate:

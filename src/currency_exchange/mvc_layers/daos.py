@@ -97,7 +97,7 @@ class RateDao(Dao):
         except IntegrityError:
             raise RateAlreadyExistsError('Валютная пара с таким кодом уже существует')
 
-    def retrieve_all(self) -> list[tuple[int, int, int, float]]:
+    def retrieve_all(self) -> list[tuple[int, int, int, str]]:
         queries = {
             GET_EXCHANGE_RATES_SQL: None,
         }
@@ -109,7 +109,7 @@ class RateDao(Dao):
 
     def retrieve_one(
         self, base_currency_id: int, target_currency_id: int
-    ) -> tuple[int, float]:
+    ) -> tuple[int, str]:
         queries = {
             GET_EXCHANGE_RATE_SQL: (base_currency_id, target_currency_id),
         }
