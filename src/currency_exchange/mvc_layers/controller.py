@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from functools import cached_property
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -16,12 +17,11 @@ from currency_exchange.exceptions import (
     RateAlreadyExistsError,
 )
 from currency_exchange.mvc_layers.service import Service
-from currency_exchange.utils.decimal_helper import to_decimal
-from currency_exchange.utils.string_helpers import serialize
+from currency_exchange.utils.data_helpers import round_decimal, serialize
 from currency_exchange.utils.validation import (
+    is_positive_number,
     is_valid_cur_code,
     is_valid_name,
-    is_valid_numerical,
     is_valid_sign,
 )
 
@@ -210,7 +210,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.BAD_REQUEST,
                         'Код валюты должен состоять из 3 заглавных английских букв',
                     )
-                elif not is_valid_numerical(exch_rate_str):
+                elif not is_positive_number(exch_rate_str):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
                         'Обменный курс должен быть положительным числом — целым '
@@ -223,8 +223,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
+                        exch_rate_dec_round = round_decimal(Decimal(exch_rate_str), 6)
                         rate_post_dto = RatePostUpdateDto(
-                            base_cur_code, target_cur_code, to_decimal(exch_rate_str)
+                            base_cur_code, target_cur_code, exch_rate_dec_round
                         )
                         data = self.service.create_rate(rate_post_dto)
                         response = serialize(data)
@@ -265,12 +266,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                         'Пара кодов валют должна состоять '
                         'из 6 заглавных английских букв',
                     )
-                elif not is_valid_numerical(exch_rate_str):
+                elif not is_positive_number(exch_rate_str):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
-                        'Обменный курс должен быть представлен целым числом '
-                        'или числом с плавающей точкой с не более чем шестью '
-                        'десятичными знаками',
+                        'Обменный курс должен быть положительным числом — целым '
+                        'или дробным; в дробных значениях используется точка',
                     )
                 elif base_cur_code == target_cur_code:
                     self.send_error(
@@ -279,8 +279,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
+                        exch_rate_dec_round = round_decimal(Decimal(exch_rate_str), 6)
                         rate_update_dto = RatePostUpdateDto(
-                            code_pair[:3], code_pair[3:], to_decimal(exch_rate_str)
+                            code_pair[:3], code_pair[3:], exch_rate_dec_round
                         )
                         data = self.service.update_rate(rate_update_dto)
                         response = serialize(data)
@@ -296,9 +297,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if len(self.path_segments) == 1:
             from_cur_code = self.query_params.get('from')
             to_cur_code = self.query_params.get('to')
-            amount = self.query_params.get('amount')
+            amount_str = self.query_params.get('amount')
 
-            if from_cur_code is None or to_cur_code is None or amount is None:
+            if from_cur_code is None or to_cur_code is None or amount_str is None:
                 self.send_error(
                     HTTPStatus.BAD_REQUEST,
                     'Отсутствует один или несколько нужных параметров запроса',
@@ -311,7 +312,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.BAD_REQUEST,
                         'Код валюты должен состоять из 3 заглавных английских букв',
                     )
-                elif not is_valid_numerical(amount):
+                elif not is_positive_number(amount_str):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
                         'Количество средств для рассчёта перевода '
@@ -319,8 +320,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
+                        amount_dec = Decimal(amount_str)
                         exchange_post_dto = ExchangePostDto(
-                            from_cur_code, to_cur_code, amount
+                            from_cur_code, to_cur_code, amount_dec
                         )
                         data = self.service.exchange_currencies(exchange_post_dto)
                         response = serialize(data)
@@ -406,5 +408,5 @@ class RequestHandler(BaseHTTPRequestHandler):
         return dict(parse_qsl(data_string.decode('utf-8')))
 
     @cached_property
-    def query_params(self) -> dict[str, Any]:
+    def query_params(self) -> dict[str, str]:
         return dict(parse_qsl(self.parsed_path.query))

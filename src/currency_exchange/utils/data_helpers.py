@@ -27,10 +27,14 @@ def to_dict(dto_obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
     dict_obj = asdict(dto_obj)
     for key, value in dict_obj.items():
         if isinstance(value, Decimal):
-            rounded_value = value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            rounded_value = round_decimal(value, 2)
             dict_obj[key] = str(rounded_value)
     converted_keys_dict_obj = convert_keys(dict_obj)
     return converted_keys_dict_obj
+
+
+def round_decimal(value_dec: Decimal, places: int) -> Decimal:
+    return value_dec.quantize(Decimal('1').scaleb(-places), rounding=ROUND_HALF_UP)
 
 
 def convert_keys(original: dict[str, Any]) -> dict[str, Any]:

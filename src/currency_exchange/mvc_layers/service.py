@@ -109,7 +109,7 @@ class Service:
     def exchange_currencies(self, exchange_post_dto: ExchangePostDto) -> ExchangeDto:
         from_cur_code = exchange_post_dto.from_currency_code
         to_cur_code = exchange_post_dto.to_currency_code
-        amount = float(exchange_post_dto.amount)
+        amount = exchange_post_dto.amount
 
         try:
             from_currency, to_currency, from_currency_id, to_currency_id = (
@@ -160,9 +160,9 @@ class Service:
         return ExchangeDto(
             self._currency_to_dto(from_currency),
             self._currency_to_dto(to_currency),
-            rate,  # type: ignore
+            rate,
             amount,
-            rate * amount,  # type: ignore
+            amount * rate,
         )
 
     @cached_property

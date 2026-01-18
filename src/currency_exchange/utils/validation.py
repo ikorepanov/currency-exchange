@@ -18,16 +18,8 @@ def is_valid_cur_code(cur_code: str) -> bool:
     )
 
 
-def is_valid_numerical(value: str) -> bool:
-    if _is_float_possible(value):
-        return float(value) > 0
-    else:
-        return False
-
-
-def _is_float_possible(value: str) -> bool:
+def is_positive_number(value: str) -> bool:
     try:
-        float(value)
-        return True
+        return float(value) > 0
     except ValueError:
         return False
