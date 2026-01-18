@@ -51,3 +51,7 @@ def to_lower_camel_case(snake_str: str) -> str:
 
 def to_camel_case(snake_str: str) -> str:
     return ''.join(letter.capitalize() for letter in snake_str.lower().split('_'))
+
+
+def repl_dec_separator(value: str) -> str:
+    return value.replace(',', '.')

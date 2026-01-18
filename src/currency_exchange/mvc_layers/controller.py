@@ -17,7 +17,11 @@ from currency_exchange.exceptions import (
     RateAlreadyExistsError,
 )
 from currency_exchange.mvc_layers.service import Service
-from currency_exchange.utils.data_helpers import round_decimal, serialize
+from currency_exchange.utils.data_helpers import (
+    repl_dec_separator,
+    round_decimal,
+    serialize,
+)
 from currency_exchange.utils.validation import (
     is_positive_number,
     is_valid_cur_code,
@@ -201,7 +205,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.BAD_REQUEST,
                     'Отсутствует нужное поле формы',
                 )
+
             else:
+                normalized_rate = repl_dec_separator(exch_rate_str)
+
                 if not (
                     is_valid_cur_code(base_cur_code)
                     and is_valid_cur_code(target_cur_code)
@@ -210,11 +217,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.BAD_REQUEST,
                         'Код валюты должен состоять из 3 заглавных английских букв',
                     )
-                elif not is_positive_number(exch_rate_str):
+                elif not is_positive_number(normalized_rate):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
-                        'Обменный курс должен быть положительным числом — целым '
-                        'или дробным; в дробных значениях используется точка',
+                        'Обменный курс должен быть положительным, целым '
+                        'или дробным числом',
                     )
                 elif base_cur_code == target_cur_code:
                     self.send_error(
@@ -223,7 +230,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        exch_rate_dec_round = round_decimal(Decimal(exch_rate_str), 6)
+                        exch_rate_dec_round = round_decimal(Decimal(normalized_rate), 6)
                         rate_post_dto = RatePostUpdateDto(
                             base_cur_code, target_cur_code, exch_rate_dec_round
                         )
@@ -257,6 +264,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
             else:
+                normalized_rate = repl_dec_separator(exch_rate_str)
+
                 if not (
                     is_valid_cur_code(base_cur_code)
                     and is_valid_cur_code(target_cur_code)
@@ -266,11 +275,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                         'Пара кодов валют должна состоять '
                         'из 6 заглавных английских букв',
                     )
-                elif not is_positive_number(exch_rate_str):
+                elif not is_positive_number(normalized_rate):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
-                        'Обменный курс должен быть положительным числом — целым '
-                        'или дробным; в дробных значениях используется точка',
+                        'Обменный курс должен быть положительным, целым '
+                        'или дробным числом',
                     )
                 elif base_cur_code == target_cur_code:
                     self.send_error(
@@ -279,7 +288,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     )
                 else:
                     try:
-                        exch_rate_dec_round = round_decimal(Decimal(exch_rate_str), 6)
+                        exch_rate_dec_round = round_decimal(Decimal(normalized_rate), 6)
                         rate_update_dto = RatePostUpdateDto(
                             code_pair[:3], code_pair[3:], exch_rate_dec_round
                         )
@@ -305,6 +314,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                     'Отсутствует один или несколько нужных параметров запроса',
                 )
             else:
+                normalized_amount = repl_dec_separator(amount_str)
+
                 if not is_valid_cur_code(from_cur_code) or not is_valid_cur_code(
                     to_cur_code
                 ):
@@ -312,15 +323,15 @@ class RequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.BAD_REQUEST,
                         'Код валюты должен состоять из 3 заглавных английских букв',
                     )
-                elif not is_positive_number(amount_str):
+                elif not is_positive_number(normalized_amount):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
-                        'Количество средств для рассчёта перевода '
-                        'должно быть положительным числом',
+                        'Количество средств для рассчёта перевода должно быть '
+                        'положительным, целым или дробным числом',
                     )
                 else:
                     try:
-                        amount_dec = Decimal(amount_str)
+                        amount_dec = Decimal(normalized_amount)
                         exchange_post_dto = ExchangePostDto(
                             from_cur_code, to_cur_code, amount_dec
                         )
