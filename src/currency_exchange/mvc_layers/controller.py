@@ -250,9 +250,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             code_pair = self.second_segment
             base_cur_code = self.second_segment[:3]
             target_cur_code = self.second_segment[3:]
-            exch_rate = self.request_params.get('rate')
+            exch_rate_str = self.request_params.get('rate')
 
-            if exch_rate is None:
+            if exch_rate_str is None:
                 self.send_error(HTTPStatus.BAD_REQUEST, 'Отсутствует нужное поле формы')
 
             else:
@@ -265,7 +265,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         'Пара кодов валют должна состоять '
                         'из 6 заглавных английских букв',
                     )
-                elif not is_valid_numerical(exch_rate):
+                elif not is_valid_numerical(exch_rate_str):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
                         'Обменный курс должен быть представлен целым числом '
@@ -280,7 +280,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 else:
                     try:
                         rate_update_dto = RatePostUpdateDto(
-                            code_pair[:3], code_pair[3:], exch_rate
+                            code_pair[:3], code_pair[3:], to_decimal(exch_rate_str)
                         )
                         data = self.service.update_rate(rate_update_dto)
                         response = serialize(data)

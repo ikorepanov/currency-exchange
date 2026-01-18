@@ -45,7 +45,9 @@ class Repository:
         return rate
 
     def update_rate(self, rate: Rate) -> Rate:
-        query_result = self.rate_dao.update_one(rate.base_id, rate.target_id, rate.rate)  # type: ignore
+        query_result = self.rate_dao.update_one(
+            rate.base_id, rate.target_id, str(rate.rate)
+        )
         rate.id = query_result
         return rate
 

@@ -121,7 +121,7 @@ class RateDao(Dao):
         except OperationalError:
             raise NoDataBaseConnectionError('База данных недоступна')
 
-    def update_one(self, base_id: int, target_id: int, rate: float) -> int:
+    def update_one(self, base_id: int, target_id: int, rate: str) -> int:
         queries = {
             UPDATE_EXCHANGE_RATE_SQL: (rate, base_id, target_id),
             GET_LAST_UPDATED_ID_SQL: (base_id, target_id),

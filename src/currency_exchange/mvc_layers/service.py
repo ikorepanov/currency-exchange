@@ -102,7 +102,7 @@ class Service:
                 'или обе валюты'
             )
 
-        exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))  # type: ignore
+        exchange_rate = Rate(None, base_currency_id, target_currency_id, rate)
         exchange_rate_with_id = self.repository.update_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
