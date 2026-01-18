@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from decimal import Decimal
 
 
@@ -44,33 +45,9 @@ class Currency:
         self._full_name = value
 
 
+@dataclass
 class Rate:
-    def __init__(self, id: int | None, base_id: int, target_id: int, rate: float):
-        self.id = id
-        self.base_id = base_id
-        self.target_id = target_id
-        self.rate = rate
-
-    @property
-    def id(self) -> int | None:
-        return self._id
-
-    @id.setter
-    def id(self, value: int | None) -> None:
-        self._id = value
-
-    @property
-    def rate(self) -> float:
-        return self._rate
-
-    @rate.setter
-    def rate(self, value: float) -> None:
-        if not (value > 0 and self.is_proper_decimal(value)):
-            raise ValueError(
-                'rate must be positive number with not more than 6 decimal places'
-            )
-        self._rate = float(value)
-
-    def is_proper_decimal(self, value: float) -> bool:
-        d = Decimal(str(value))
-        return abs(int(d.as_tuple().exponent)) <= 6
+    id: int | None
+    base_id: int
+    target_id: int
+    rate: Decimal

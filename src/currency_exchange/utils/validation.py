@@ -18,16 +18,16 @@ def is_valid_cur_code(cur_code: str) -> bool:
     )
 
 
-def is_valid_amount(str_amount: str) -> bool:
-    if _is_amount_could_be_float(str_amount):
-        return float(str_amount) > 0 and len(str(float(str_amount)).split('.')[1]) <= 6
+def is_valid_numerical(value: str) -> bool:
+    if _is_float_possible(value):
+        return float(value) > 0
     else:
         return False
 
 
-def _is_amount_could_be_float(str_amount: str) -> bool:
+def _is_float_possible(value: str) -> bool:
     try:
-        float(str_amount)
+        float(value)
         return True
     except ValueError:
         return False

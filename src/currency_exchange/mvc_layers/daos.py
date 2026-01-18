@@ -84,7 +84,7 @@ class CurrencyDao(Dao):
 
 
 class RateDao(Dao):
-    def create_one(self, base_id: int, target_id: int, rate: float) -> int:
+    def create_one(self, base_id: int, target_id: int, rate: str) -> int:
         queries = {
             CREATE_EXCHANGE_RATE_SQL: (base_id, target_id, rate),
             GET_LAST_CREATED_ID_SQL: None,

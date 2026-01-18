@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from decimal import Decimal
 
 
 @dataclass
@@ -21,14 +22,14 @@ class RateDto:
     id: int
     base_currency: CurrencyDto
     target_currency: CurrencyDto
-    rate: float
+    rate: Decimal
 
 
 @dataclass
 class RatePostUpdateDto:
     base_currency_code: str
     target_currency_code: str
-    rate: float
+    rate: Decimal
 
 
 @dataclass

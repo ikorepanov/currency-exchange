@@ -16,11 +16,12 @@ from currency_exchange.exceptions import (
     RateAlreadyExistsError,
 )
 from currency_exchange.mvc_layers.service import Service
+from currency_exchange.utils.decimal_helper import to_decimal
 from currency_exchange.utils.string_helpers import serialize
 from currency_exchange.utils.validation import (
-    is_valid_amount,
     is_valid_cur_code,
     is_valid_name,
+    is_valid_numerical,
     is_valid_sign,
 )
 
@@ -168,7 +169,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
                         'Знак валюты должен быть специальным Unicode-символом '
-                        'категории Currency_Symbol',
+                        'категории Currency_Symbol. Гуглите, пацаны! :-)',
                     )
                 else:
                     try:
@@ -189,9 +190,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         if len(self.path_segments) == 1:
             base_cur_code = self.request_params.get('baseCurrencyCode')
             target_cur_code = self.request_params.get('targetCurrencyCode')
-            exch_rate = self.request_params.get('rate')
+            exch_rate_str = self.request_params.get('rate')
 
-            if base_cur_code is None or target_cur_code is None or exch_rate is None:
+            if (
+                base_cur_code is None
+                or target_cur_code is None
+                or exch_rate_str is None
+            ):
                 self.send_error(
                     HTTPStatus.BAD_REQUEST,
                     'Отсутствует нужное поле формы',
@@ -205,12 +210,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.BAD_REQUEST,
                         'Код валюты должен состоять из 3 заглавных английских букв',
                     )
-                elif not is_valid_amount(exch_rate):
+                elif not is_valid_numerical(exch_rate_str):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
-                        'Обменный курс должен быть представлен целым числом '
-                        'или числом с плавающей точкой с не более чем шестью '
-                        'десятичными знаками',
+                        'Обменный курс должен быть положительным числом — целым '
+                        'или дробным; в дробных значениях используется точка',
                     )
                 elif base_cur_code == target_cur_code:
                     self.send_error(
@@ -220,7 +224,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 else:
                     try:
                         rate_post_dto = RatePostUpdateDto(
-                            base_cur_code, target_cur_code, exch_rate
+                            base_cur_code, target_cur_code, to_decimal(exch_rate_str)
                         )
                         data = self.service.create_rate(rate_post_dto)
                         response = serialize(data)
@@ -261,7 +265,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         'Пара кодов валют должна состоять '
                         'из 6 заглавных английских букв',
                     )
-                elif not is_valid_amount(exch_rate):
+                elif not is_valid_numerical(exch_rate):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
                         'Обменный курс должен быть представлен целым числом '
@@ -307,7 +311,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.BAD_REQUEST,
                         'Код валюты должен состоять из 3 заглавных английских букв',
                     )
-                elif not is_valid_amount(amount):
+                elif not is_valid_numerical(amount):
                     self.send_error(
                         HTTPStatus.BAD_REQUEST,
                         'Количество средств для рассчёта перевода '

@@ -83,7 +83,7 @@ class Service:
                 'Одна (или обе) валюта из валютной пары не существует в БД'
             )
 
-        exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))
+        exchange_rate = Rate(None, base_currency_id, target_currency_id, rate)
         exchange_rate_with_id = self.repository.create_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
@@ -102,7 +102,7 @@ class Service:
                 'или обе валюты'
             )
 
-        exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))
+        exchange_rate = Rate(None, base_currency_id, target_currency_id, float(rate))  # type: ignore
         exchange_rate_with_id = self.repository.update_rate(exchange_rate)
         return self._rate_to_dto(exchange_rate_with_id, base_currency, target_currency)
 
@@ -160,9 +160,9 @@ class Service:
         return ExchangeDto(
             self._currency_to_dto(from_currency),
             self._currency_to_dto(to_currency),
-            rate,
+            rate,  # type: ignore
             amount,
-            rate * amount,
+            rate * amount,  # type: ignore
         )
 
     @cached_property

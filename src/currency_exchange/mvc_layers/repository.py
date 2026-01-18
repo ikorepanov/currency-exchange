@@ -26,7 +26,7 @@ class Repository:
 
     def get_rates(self) -> list[Rate]:
         query_result = self.rate_dao.retrieve_all()
-        return [Rate(row[0], row[1], row[2], row[3]) for row in query_result]
+        return [Rate(row[0], row[1], row[2], row[3]) for row in query_result]  # type: ignore
 
     def get_rate(self, base_currency_id: int, target_currency_id: int) -> Rate:
         query_result = self.rate_dao.retrieve_one(base_currency_id, target_currency_id)
@@ -34,16 +34,18 @@ class Repository:
             query_result[0],
             base_currency_id,
             target_currency_id,
-            query_result[1],
+            query_result[1],  # type: ignore
         )
 
     def create_rate(self, rate: Rate) -> Rate:
-        query_result = self.rate_dao.create_one(rate.base_id, rate.target_id, rate.rate)
+        query_result = self.rate_dao.create_one(
+            rate.base_id, rate.target_id, str(rate.rate)
+        )
         rate.id = query_result
         return rate
 
     def update_rate(self, rate: Rate) -> Rate:
-        query_result = self.rate_dao.update_one(rate.base_id, rate.target_id, rate.rate)
+        query_result = self.rate_dao.update_one(rate.base_id, rate.target_id, rate.rate)  # type: ignore
         rate.id = query_result
         return rate
 

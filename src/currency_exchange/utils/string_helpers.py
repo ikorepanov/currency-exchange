@@ -1,5 +1,6 @@
 import json
 from dataclasses import asdict
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from currency_exchange.dtos import (
@@ -22,8 +23,14 @@ def to_json(obj: dict[str, Any] | list[dict[str, Any]]) -> str:
     return json.dumps(obj, ensure_ascii=False)
 
 
-def to_dict(obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
-    return convert_keys(asdict(obj))
+def to_dict(dto_obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
+    dict_obj = asdict(dto_obj)
+    for key, value in dict_obj.items():
+        if isinstance(value, Decimal):
+            rounded_value = value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            dict_obj[key] = str(rounded_value)
+    converted_keys_dict_obj = convert_keys(dict_obj)
+    return converted_keys_dict_obj
 
 
 def convert_keys(original: dict[str, Any]) -> dict[str, Any]:
