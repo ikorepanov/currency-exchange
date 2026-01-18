@@ -29,7 +29,7 @@ def to_dict(dto_obj: CurrencyDto | RateDto | ExchangeDto) -> dict[str, Any]:
     for key, value in dict_obj.items():
         if isinstance(value, Decimal):
             rounded_value = round_decimal(value, NUMBER_OF_DECIMAL_PLACES_FOR_JSON)
-            dict_obj[key] = str(rounded_value)
+            dict_obj[key] = float(rounded_value)
     converted_keys_dict_obj = convert_keys(dict_obj)
     return converted_keys_dict_obj
 
