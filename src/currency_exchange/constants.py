@@ -53,3 +53,54 @@ SELECT ID
 FROM ExchangeRates
 WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?
 """
+
+DROP_CURRENCIES_TABLE_SQL = 'DROP TABLE IF EXISTS Currencies'
+
+CREATE_CURRENCIES_TABLE_SQL = """
+CREATE TABLE Currencies (
+ID INTEGER PRIMARY KEY,
+Code VARCHAR NOT NULL,
+FullName VARCHAR NOT NULL,
+Sign VARCHAR NOT NULL
+)
+"""
+CREATE_UNIQUE_INDEX_CURRENCIES_SQL = """
+CREATE UNIQUE INDEX
+currencies_code
+ON Currencies(Code)
+"""
+
+INSERT_INTO_CURRENCIES_SQL = """
+INSERT OR IGNORE INTO Currencies
+(Code, FullName, Sign)
+VALUES (?, ?, ?)
+"""
+
+DROP_EXCHANGE_RATES_TABLE_SQL = 'DROP TABLE IF EXISTS ExchangeRates'
+
+CREATE_EXCHANGE_RATES_TABLE_SQL = """
+CREATE TABLE ExchangeRates (
+ID INTEGER PRIMARY KEY,
+BaseCurrencyId INTEGER NOT NULL,
+TargetCurrencyId INTEGER NOT NULL,
+Rate NUMERIC NOT NULL
+)
+"""
+
+CREATE_UNIQUE_INDEX_EXCHANGE_RATES_SQL = """
+CREATE UNIQUE INDEX
+rates_base_target
+ON ExchangeRates(BaseCurrencyId, TargetCurrencyId)
+"""
+
+INSERT_INTO_EXCHANGE_RATES_SQL = """
+INSERT OR IGNORE INTO ExchangeRates
+(BaseCurrencyId, TargetCurrencyId, Rate)
+VALUES (?, ?, ?)
+"""
+
+GET_ID_FROM_CURRENCIES_SQL = """
+SELECT ID
+FROM Currencies
+WHERE code = ?
+"""
