@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pathlib import Path
 from sqlite3 import connect
 
@@ -13,8 +14,9 @@ from currency_exchange.constants import (
     GET_ID_FROM_CURRENCIES_SQL,
     INSERT_INTO_CURRENCIES_SQL,
     INSERT_INTO_EXCHANGE_RATES_SQL,
+    NUMBER_OF_DECIMAL_PLACES_FOR_RATES,
 )
-from currency_exchange.utils.decimal_helper import to_decimal
+from currency_exchange.utils.data_helpers import round_decimal
 
 
 def create_db() -> None:
@@ -49,7 +51,9 @@ def create_db() -> None:
                 target_cur_code = csv_parts[1]
                 rate_str = csv_parts[2]
 
-                rate_dec = to_decimal(rate_str)
+                rate_dec = round_decimal(
+                    Decimal(rate_str), NUMBER_OF_DECIMAL_PLACES_FOR_RATES
+                )
 
                 cur.execute(GET_ID_FROM_CURRENCIES_SQL, (base_cur_code,))
                 base_cur_id = cur.fetchone()[0]
