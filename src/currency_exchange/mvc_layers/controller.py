@@ -334,6 +334,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                         'Количество средств для рассчёта перевода должно быть '
                         'положительным, целым или дробным числом',
                     )
+                elif from_cur_code == to_cur_code:
+                    self.send_error(
+                        HTTPStatus.BAD_REQUEST,
+                        'Нельзя произвести расчёт перевода средств '
+                        'из одной валюты в саму себя',
+                    )
                 else:
                     try:
                         amount_dec = Decimal(normalized_amount)
