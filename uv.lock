@@ -137,7 +137,7 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = "==1.19.1" },
     { name = "pre-commit", specifier = "==4.5.1" },
-    { name = "ptpython", specifier = ">=3.0.32" },
+    { name = "ptpython", specifier = "==3.0.32" },
     { name = "ruff", specifier = "==0.14.10" },
 ]
 
