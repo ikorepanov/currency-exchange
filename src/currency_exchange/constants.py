@@ -1,7 +1,12 @@
+from pathlib import Path
+
 EXCHANGE_RATE_HELPER_CUR_CODE = 'USD'
 
 NUMBER_OF_DECIMAL_PLACES_FOR_RATES = 6
 NUMBER_OF_DECIMAL_PLACES_FOR_JSON = 2
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+DB_PATH = PROJECT_ROOT / 'db' / 'db.sqlite'
 
 CREATE_CURRENCY_SQL = """
 INSERT INTO Currencies

@@ -4,6 +4,7 @@ from typing import Any
 from currency_exchange.constants import (
     CREATE_CURRENCY_SQL,
     CREATE_EXCHANGE_RATE_SQL,
+    DB_PATH,
     GET_CURRENCIES_SQL,
     GET_CURRENCY_BY_CODE_SQL,
     GET_CURRENCY_BY_ID_SQL,
@@ -24,7 +25,7 @@ from currency_exchange.exceptions import (
 
 class Dao:
     def interact_with_db(self, queries: dict[str, Any], all: bool = False) -> Any:
-        with connect('./src/currency_exchange/db/db.sqlite') as conn:
+        with connect(str(DB_PATH)) as conn:
             cur = conn.cursor()
             for sql, params in queries.items():
                 self._execute(cur, sql, params)

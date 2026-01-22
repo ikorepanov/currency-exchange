@@ -1,5 +1,4 @@
 from decimal import Decimal
-from pathlib import Path
 from sqlite3 import connect
 
 from loguru import logger
@@ -9,24 +8,23 @@ from currency_exchange.constants import (
     CREATE_EXCHANGE_RATES_TABLE_SQL,
     CREATE_UNIQUE_INDEX_CURRENCIES_SQL,
     CREATE_UNIQUE_INDEX_EXCHANGE_RATES_SQL,
+    DB_PATH,
     DROP_CURRENCIES_TABLE_SQL,
     DROP_EXCHANGE_RATES_TABLE_SQL,
     GET_ID_FROM_CURRENCIES_SQL,
     INSERT_INTO_CURRENCIES_SQL,
     INSERT_INTO_EXCHANGE_RATES_SQL,
     NUMBER_OF_DECIMAL_PLACES_FOR_RATES,
+    PROJECT_ROOT,
 )
 from currency_exchange.utils.data_helpers import round_decimal
 
-BASE_DIR = Path(__file__).resolve().parent
-
-file_path_db = BASE_DIR / 'db.sqlite'
-file_path_currencies = BASE_DIR / 'data' / 'Currencies.csv'
-file_path_exchange_rates = BASE_DIR / 'data' / 'ExchangeRates.csv'
+file_path_currencies = PROJECT_ROOT / 'db' / 'data' / 'Currencies.csv'
+file_path_exchange_rates = PROJECT_ROOT / 'db' / 'data' / 'ExchangeRates.csv'
 
 
 def create_db() -> None:
-    with connect(str(file_path_db)) as conn:
+    with connect(str(DB_PATH)) as conn:
         cur = conn.cursor()
         cur.execute(DROP_CURRENCIES_TABLE_SQL)
         cur.execute(CREATE_CURRENCIES_TABLE_SQL)
