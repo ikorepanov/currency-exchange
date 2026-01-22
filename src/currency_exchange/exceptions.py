@@ -1,7 +1,3 @@
-class CurrencyExchangeError(Exception):
-    pass
-
-
 class NoDataBaseConnectionError(Exception):
     pass
 
@@ -27,12 +23,4 @@ class NoCurrencyPairError(Exception):
 
 
 class CantConvertError(Exception):
-    pass
-
-
-class InvalidDataError(Exception):
-    pass
-
-
-class InvalidRequestError(Exception):
     pass
