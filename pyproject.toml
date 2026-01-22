@@ -4,11 +4,10 @@ version = "1.0.0"
 description = "REST API service for managing currencies, exchange rates, and calculating currency conversions"
 readme = "README.md"
 authors = [
-    { name = "Ilia Korepanov", email = "ikorepanov@gmail.com" }
+    { name = "Ilia Korepanov" }
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "forex-python==1.9.2",
     "loguru==0.7.3",
 ]
 
