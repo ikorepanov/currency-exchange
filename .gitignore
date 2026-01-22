@@ -166,12 +166,11 @@ cython_debug/
 
 .vscode/
 
-.examples/
-
-*.lock
-
 # --- Personal notes ---
 TODO.md
 
 # ruff
 .ruff_cache/
+
+# DB
+*.sqlite
