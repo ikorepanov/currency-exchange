@@ -1,3 +1,4 @@
+import csv
 from decimal import Decimal
 from sqlite3 import connect
 
@@ -28,16 +29,13 @@ def create_db() -> None:
         cur.execute(CREATE_CURRENCIES_TABLE_SQL)
         cur.execute(CREATE_UNIQUE_INDEX_CURRENCIES_SQL)
 
-        with FILE_PATH_CURRENCIES.open(encoding='utf-8') as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                csv_parts = line.split(',')
+        with FILE_PATH_CURRENCIES.open(encoding='utf-8', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
 
-                code = csv_parts[0]
-                name = csv_parts[1]
-                sign = csv_parts[2]
+            for row in reader:
+                code = row['Code']
+                name = row['Name']
+                sign = row['Sign']
 
                 cur.execute(
                     INSERT_INTO_CURRENCIES_SQL,
@@ -48,16 +46,13 @@ def create_db() -> None:
         cur.execute(CREATE_EXCHANGE_RATES_TABLE_SQL)
         cur.execute(CREATE_UNIQUE_INDEX_EXCHANGE_RATES_SQL)
 
-        with FILE_PATH_EXCHANGE_RATES.open(encoding='utf-8') as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                csv_parts = line.split(',')
+        with FILE_PATH_EXCHANGE_RATES.open(encoding='utf-8', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
 
-                base_cur_code = csv_parts[0]
-                target_cur_code = csv_parts[1]
-                rate_str = csv_parts[2]
+            for row in reader:
+                base_cur_code = row['Base']
+                target_cur_code = row['Targ']
+                rate_str = row['Rate']
 
                 rate_dec = round_decimal(
                     Decimal(rate_str), NUMBER_OF_DECIMAL_PLACES_FOR_RATES
