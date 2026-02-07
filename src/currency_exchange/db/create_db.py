@@ -11,16 +11,14 @@ from currency_exchange.constants import (
     DB_PATH,
     DROP_CURRENCIES_TABLE_SQL,
     DROP_EXCHANGE_RATES_TABLE_SQL,
+    FILE_PATH_CURRENCIES,
+    FILE_PATH_EXCHANGE_RATES,
     GET_ID_FROM_CURRENCIES_SQL,
     INSERT_INTO_CURRENCIES_SQL,
     INSERT_INTO_EXCHANGE_RATES_SQL,
     NUMBER_OF_DECIMAL_PLACES_FOR_RATES,
-    PROJECT_ROOT,
 )
 from currency_exchange.utils.data_helpers import round_decimal
-
-file_path_currencies = PROJECT_ROOT / 'db' / 'data' / 'Currencies.csv'
-file_path_exchange_rates = PROJECT_ROOT / 'db' / 'data' / 'ExchangeRates.csv'
 
 
 def create_db() -> None:
@@ -30,7 +28,7 @@ def create_db() -> None:
         cur.execute(CREATE_CURRENCIES_TABLE_SQL)
         cur.execute(CREATE_UNIQUE_INDEX_CURRENCIES_SQL)
 
-        with file_path_currencies.open(encoding='utf-8') as handle:
+        with FILE_PATH_CURRENCIES.open(encoding='utf-8') as handle:
             for line in handle:
                 line = line.strip()
                 if not line:
@@ -50,7 +48,7 @@ def create_db() -> None:
         cur.execute(CREATE_EXCHANGE_RATES_TABLE_SQL)
         cur.execute(CREATE_UNIQUE_INDEX_EXCHANGE_RATES_SQL)
 
-        with file_path_exchange_rates.open(encoding='utf-8') as handle:
+        with FILE_PATH_EXCHANGE_RATES.open(encoding='utf-8') as handle:
             for line in handle:
                 line = line.strip()
                 if not line:
