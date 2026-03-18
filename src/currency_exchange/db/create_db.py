@@ -1,6 +1,6 @@
 import csv
 from decimal import Decimal
-from sqlite3 import connect
+from sqlite3 import OperationalError, connect
 
 from loguru import logger
 
@@ -73,4 +73,15 @@ def create_db() -> None:
 
 
 if __name__ == '__main__':
-    create_db()
+    try:
+        create_db()
+    except OperationalError as error:
+        logger.error(f'База данных недоступна: {error!s}')
+    except FileNotFoundError as error:
+        logger.error(
+            f'Отсутствует csv-файл, необходимый для создания таблицы в БД: {error!s}'
+        )
+    except csv.Error as error:
+        logger.error(f'Возникла ошибка при работе с csv-файлом: {error!s}')
+    except Exception as error:
+        logger.error(f'Возникла непредвиденная ошибка: {error!s}')
