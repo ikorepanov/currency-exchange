@@ -174,3 +174,10 @@ TODO.md
 
 # DB
 *.sqlite
+
+# reviews
+review_1.md
+review_2.md
+
+# helper
+currency-exchange.md

@@ -7,6 +7,8 @@ NUMBER_OF_DECIMAL_PLACES_FOR_JSON = 2
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DB_PATH = PROJECT_ROOT / 'db' / 'db.sqlite'
+FILE_PATH_CURRENCIES = PROJECT_ROOT / 'db' / 'data' / 'Currencies.csv'
+FILE_PATH_EXCHANGE_RATES = PROJECT_ROOT / 'db' / 'data' / 'ExchangeRates.csv'
 
 CREATE_CURRENCY_SQL = """
 INSERT INTO Currencies

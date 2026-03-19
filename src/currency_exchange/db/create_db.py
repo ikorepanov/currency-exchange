@@ -1,5 +1,6 @@
+import csv
 from decimal import Decimal
-from sqlite3 import connect
+from sqlite3 import OperationalError, connect
 
 from loguru import logger
 
@@ -11,16 +12,14 @@ from currency_exchange.constants import (
     DB_PATH,
     DROP_CURRENCIES_TABLE_SQL,
     DROP_EXCHANGE_RATES_TABLE_SQL,
+    FILE_PATH_CURRENCIES,
+    FILE_PATH_EXCHANGE_RATES,
     GET_ID_FROM_CURRENCIES_SQL,
     INSERT_INTO_CURRENCIES_SQL,
     INSERT_INTO_EXCHANGE_RATES_SQL,
     NUMBER_OF_DECIMAL_PLACES_FOR_RATES,
-    PROJECT_ROOT,
 )
 from currency_exchange.utils.data_helpers import round_decimal
-
-file_path_currencies = PROJECT_ROOT / 'db' / 'data' / 'Currencies.csv'
-file_path_exchange_rates = PROJECT_ROOT / 'db' / 'data' / 'ExchangeRates.csv'
 
 
 def create_db() -> None:
@@ -30,16 +29,13 @@ def create_db() -> None:
         cur.execute(CREATE_CURRENCIES_TABLE_SQL)
         cur.execute(CREATE_UNIQUE_INDEX_CURRENCIES_SQL)
 
-        with file_path_currencies.open(encoding='utf-8') as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                csv_parts = line.split(',')
+        with FILE_PATH_CURRENCIES.open(encoding='utf-8', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
 
-                code = csv_parts[0]
-                name = csv_parts[1]
-                sign = csv_parts[2]
+            for row in reader:
+                code = row['Code']
+                name = row['Name']
+                sign = row['Sign']
 
                 cur.execute(
                     INSERT_INTO_CURRENCIES_SQL,
@@ -50,16 +46,13 @@ def create_db() -> None:
         cur.execute(CREATE_EXCHANGE_RATES_TABLE_SQL)
         cur.execute(CREATE_UNIQUE_INDEX_EXCHANGE_RATES_SQL)
 
-        with file_path_exchange_rates.open(encoding='utf-8') as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                csv_parts = line.split(',')
+        with FILE_PATH_EXCHANGE_RATES.open(encoding='utf-8', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
 
-                base_cur_code = csv_parts[0]
-                target_cur_code = csv_parts[1]
-                rate_str = csv_parts[2]
+            for row in reader:
+                base_cur_code = row['Base']
+                target_cur_code = row['Targ']
+                rate_str = row['Rate']
 
                 rate_dec = round_decimal(
                     Decimal(rate_str), NUMBER_OF_DECIMAL_PLACES_FOR_RATES
@@ -80,4 +73,15 @@ def create_db() -> None:
 
 
 if __name__ == '__main__':
-    create_db()
+    try:
+        create_db()
+    except OperationalError as error:
+        logger.error(f'База данных недоступна: {error!s}')
+    except FileNotFoundError as error:
+        logger.error(
+            f'Отсутствует csv-файл, необходимый для создания таблицы в БД: {error!s}'
+        )
+    except csv.Error as error:
+        logger.error(f'Возникла ошибка при работе с csv-файлом: {error!s}')
+    except Exception as error:
+        logger.error(f'Возникла непредвиденная ошибка: {error!s}')
